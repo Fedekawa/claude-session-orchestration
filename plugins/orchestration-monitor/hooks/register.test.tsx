@@ -97,3 +97,14 @@ test('the band still draws before the first reply has a context figure', async (
   expect(drawn).toContain('🧠 Context')
   expect(drawn).toContain('fills in after the next reply')
 })
+
+test('the panel draws the lead and each subagent as a card, the running one lit', async ($, on) => {
+  lead(on)
+  await subagent($, on)
+  const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
+  const cards = (await ui.findAll({ type: 'Box' })).filter(b => b.props.borderStyle === 'round')
+  await ui.unmount()
+  // The lead at 72% and the running subagent are lit in orange.
+  expect(cards.length).toBe(2)
+  expect(cards.every(b => b.props.borderColor === '#d97757')).toBe(true)
+})

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionUsage } from 'claude-code'
+import type { EngineInterface, Register, RenderChildren, SessionUsage } from 'claude-code'
 
 import type { AgentRun, WorkerSession } from '../types'
 
@@ -304,112 +304,124 @@ export const register: Register = on => {
     const running = list.filter(a => a.status === 'running').reverse()
     const finished = list.filter(a => a.status !== 'running').reverse()
     const agentTokens = list.reduce((sum, a) => sum + a.tokens, 0)
-    const width = Math.max(10, Math.min(40, e.props.bodyColumns - 14))
+    // A card's border and padding take 4 columns.
+    const width = Math.max(10, Math.min(40, e.props.bodyColumns - 18))
     const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length]
     const limits = limitsText(usage)
 
-    const agentRow = (a: AgentRun) => {
+    const card = (key: string, isLit: boolean, children: RenderChildren) => (
+      <Box key={key} flexDirection="column" borderStyle="round" borderColor={isLit ? ORANGE : undefined} borderDimColor={!isLit} paddingX={1}>
+        {children}
+      </Box>
+    )
+    const heading = (title: string, detail: string) => (
+      <Box flexDirection="row" gap={1}>
+        <Text bold color={ORANGE}>
+          {title}
+        </Text>
+        <Text dimColor>{detail}</Text>
+      </Box>
+    )
+
+    const agentCard = (a: AgentRun) => {
       // A subagent on the lead's model has the lead's window; for any other only the count is sure.
       const fill = a.model === leadModel && window ? ` (${Math.round((a.contextTokens / window) * 100)}%)` : ''
       const time = fmtTime((a.endedAt ?? at) - a.startedAt)
       const mark = a.status === 'running' ? spin : a.status === 'done' ? '✅' : '💥'
-      return (
-        <Box key={a.id} flexDirection="column">
+      return card(
+        a.id,
+        a.status === 'running',
+        <>
           <Box flexDirection="row" gap={1}>
             <Text color={a.status === 'running' ? ORANGE : undefined}>{mark}</Text>
-            <Text bold={a.status === 'running'} wrap="truncate-end">
+            <Text bold wrap="truncate-end">
               {a.description || a.type}
             </Text>
           </Box>
-          <Box flexDirection="row" gap={1}>
-            <Text> </Text>
-            <Text>● {shortModel(a.model)}</Text>
-            {a.effort && <Text dimColor>{a.effort}</Text>}
-            <Text dimColor wrap="truncate-end">
-              {a.type} · 🧠 {fmtTokens(a.contextTokens)}
-              {fill} · {fmtTokens(a.tokens)} tokens · ⏱ {time}
-            </Text>
-          </Box>
-        </Box>
+          <Text dimColor wrap="truncate-end">
+            ● {shortModel(a.model)}
+            {a.effort ? ` ${a.effort}` : ''} · {a.type}
+          </Text>
+          <Text dimColor wrap="truncate-end">
+            🧠 {fmtTokens(a.contextTokens)}
+            {fill} · {fmtTokens(a.tokens)} tokens · ⏱ {time}
+          </Text>
+        </>,
       )
     }
 
     return (
       <Box flexDirection="column" gap={1}>
-        <Box flexDirection="column">
-          <Box flexDirection="row" gap={1}>
-            <Text bold color={ORANGE}>
-              🧠 Lead
-            </Text>
-            <Text dimColor>● {shortModel(leadModel)}</Text>
-          </Box>
-          <Box flexDirection="row" gap={1}>
-            {bar(percent / 100, width)}
-            <Text bold color={ORANGE}>
-              {percent}% {mood(percent)}
-            </Text>
-          </Box>
-          <Text dimColor>
-            {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(window)} tokens used
-          </Text>
-          {limits && <Text dimColor>⏱ Usage limits: {limits}</Text>}
-          {percent >= 70 && (
-            <Text color={ORANGE}>{mood(percent)} Getting full: hand work to a subagent or run /compact.</Text>
-          )}
-        </Box>
-
-        {used.length > 0 && (
-          <Box flexDirection="column">
-            <Text bold color={ORANGE}>
-              📦 What fills the context
-            </Text>
-            {used.slice(0, 6).map(c => (
-              <Box key={`cat-${c.name}`} flexDirection="row" gap={1}>
-                {bar(c.tokens / biggest, 10)}
-                <Text>{fmtTokens(c.tokens)}</Text>
-                <Text dimColor wrap="truncate-end">
-                  {c.name}
-                </Text>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        <Box flexDirection="column">
-          <Box flexDirection="row" gap={1}>
-            <Text bold color={ORANGE}>
-              🤖 Subagents
-            </Text>
-            <Text dimColor>
-              {running.length} working · {finished.length} done
-              {agentTokens ? ` · ${fmtTokens(agentTokens)} tokens` : ''}
-            </Text>
-          </Box>
-          {list.length === 0 && <Text dimColor>None yet. 💤</Text>}
-          {running.map(agentRow)}
-          {finished.map(agentRow)}
-        </Box>
-
-        <Box flexDirection="column">
-          <Box flexDirection="row" gap={1}>
-            <Text bold color={ORANGE}>
-              🛰️ Worker sessions
-            </Text>
-            <Text dimColor>{workers.length}</Text>
-          </Box>
-          {workers.length === 0 && <Text dimColor>None started from here.</Text>}
-          {[...workers].reverse().map(s => (
-            <Box key={s.id} flexDirection="row" gap={1}>
-              <Text>{s.reportedAt ? '📨' : '⏳'}</Text>
-              <Text bold={!s.reportedAt} wrap="truncate-end">
-                {s.title}
-              </Text>
-              <Text dimColor>
-                started {fmtClock(s.startedAt)}
-                {s.reportedAt ? ` · reported ${fmtClock(s.reportedAt)}` : ' · waiting for report'}
+        {card(
+          'lead',
+          percent >= 70,
+          <>
+            {heading('🧠 Lead', `● ${shortModel(leadModel)}`)}
+            <Box flexDirection="row" gap={1}>
+              {bar(percent / 100, width)}
+              <Text bold color={ORANGE}>
+                {percent}% {mood(percent)}
               </Text>
             </Box>
-          ))}
+            <Text dimColor>
+              {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(window)} tokens used
+            </Text>
+            {limits && <Text dimColor>⏱ Usage limits: {limits}</Text>}
+            {percent >= 70 && (
+              <Text color={ORANGE}>{mood(percent)} Getting full: hand work to a subagent or run /compact.</Text>
+            )}
+          </>,
+        )}
+
+        {used.length > 0 &&
+          card(
+            'context',
+            false,
+            <>
+              {heading('📦 What fills the context', '')}
+              {used.slice(0, 6).map(c => (
+                <Box key={`cat-${c.name}`} flexDirection="row" gap={1}>
+                  {bar(c.tokens / biggest, 10)}
+                  <Text>{fmtTokens(c.tokens)}</Text>
+                  <Text dimColor wrap="truncate-end">
+                    {c.name}
+                  </Text>
+                </Box>
+              ))}
+            </>,
+          )}
+
+        <Box flexDirection="column">
+          {heading(
+            '🤖 Subagents',
+            `${running.length} working · ${finished.length} done${agentTokens ? ` · ${fmtTokens(agentTokens)} tokens` : ''}`,
+          )}
+          {list.length === 0 && <Text dimColor>None yet. 💤</Text>}
+          {running.map(agentCard)}
+          {finished.map(agentCard)}
+        </Box>
+
+        <Box flexDirection="column">
+          {heading('🛰️ Worker sessions', String(workers.length))}
+          {workers.length === 0 && <Text dimColor>None started from here.</Text>}
+          {[...workers].reverse().map(s =>
+            card(
+              s.id,
+              !s.reportedAt,
+              <>
+                <Box flexDirection="row" gap={1}>
+                  <Text>{s.reportedAt ? '📨' : '⏳'}</Text>
+                  <Text bold wrap="truncate-end">
+                    {s.title}
+                  </Text>
+                </Box>
+                <Text dimColor>
+                  started {fmtClock(s.startedAt)}
+                  {s.reportedAt ? ` · reported ${fmtClock(s.reportedAt)}` : ' · waiting for report'}
+                </Text>
+              </>,
+            ),
+          )}
         </Box>
       </Box>
     )
