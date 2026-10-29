@@ -86,7 +86,7 @@ Never use `--dangerously-skip-permissions` for a worker. The JSON output carries
 
 - Do not poll. Take your own non-overlapping step now; results arrive on their own. If your host does not deliver them, ask the user to paste the report.
 - Keep a ledger: name, scope, branch or worktree, state, budget. Keep it in a scratch file outside the repo, not in your head: context compaction on a long run loses what only you remember.
-- A blocked worker is your top priority. Answer fast, or ask the user. When you forward the user's approval, quote their words.
+- A blocked worker is your top priority. Answer fast, or ask the user in the format of section 9. When you forward the user's approval, quote their words.
 - A worker that passes its budget or goes quiet: stop it and ask for a partial report.
 - Never invent or predict a worker's result. If asked before it arrives, say it is still running.
 
@@ -107,7 +107,31 @@ Merging into the integration branch is your job. Merging that branch into the ba
 
 ## 8. Close out
 
-Tell the user what changed, what they must decide or verify, what you skipped, and your recommendation. Say which claims you verified yourself and which come from worker reports. Offer to close or archive finished sessions (if your host supports it) and to remove merged worktrees, and do it only on their yes, after checking each target is clean and merged.
+Tell the user what changed, what they must decide or verify, what you skipped, and your recommendation. Anything they must decide goes in the format of section 9. Say which claims you verified yourself and which come from worker reports. Offer to close or archive finished sessions (if your host supports it) and to remove merged worktrees, and do it only on their yes, after checking each target is clean and merged.
+
+## 9. When you need the user's decision
+
+Never ask an open question. The user has less context than you and should be able to answer in one word. Every request for input is multiple choice:
+
+1. **What the decision is about.** One or two sentences: what it affects, why you cannot decide it yourself, and what happens if nobody decides (the default you will take, or that work stays blocked).
+2. **At least three real alternatives.** Each one a path you would actually take. "Do nothing" or "defer" counts when it is genuine; a straw man added to reach three does not.
+3. **Pros and cons of each**, in the user's terms: cost, risk, time, what it rules out later.
+4. **One recommended option**, marked, with the reason in one sentence.
+
+```markdown
+**Decision: <title>**
+<what it is about, why it is yours, what happens with no answer>
+
+| | Option | Pros | Cons |
+|---|---|---|---|
+| A (recommended) | ... | ... | ... |
+| B | ... | ... | ... |
+| C | ... | ... | ... |
+
+**Recommendation:** A, because <one sentence>. Reply with a letter, or describe another option.
+```
+
+One decision per question. Two unrelated decisions are two questions. If your host has a question tool with selectable options, use it with the same content: the recommended option first and labelled as such, the pros and cons in each option's description. A worker's escalation usually arrives as two options; reshape it into this format before it reaches the user, adding the alternative the worker could not see from inside its scope.
 
 ## Anti-patterns
 
@@ -119,3 +143,4 @@ Tell the user what changed, what they must decide or verify, what you skipped, a
 - Accepting "done" without looking at the diff.
 - Unbounded fan-out, or workers with no budget.
 - Going silent. The user should always be able to tell what is running and what you are waiting on.
+- Open questions to the user ("how do you want to handle this?") instead of a multiple-choice decision with a recommendation.
