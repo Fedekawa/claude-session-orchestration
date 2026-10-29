@@ -49,6 +49,14 @@ const fmtTime = (ms: number): string => {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`
 }
 
+// How long a prompt cache entry lives after its last use: Claude Code writes 1-hour entries on a
+// subscription, so a session writing 5-minute ones goes cold sooner than shown.
+const CACHE_TTL_MS = 60 * 60_000
+
+// Until the cache goes cold, from the orchestrator's last request; 0 once it has.
+const cacheLeft = (c: { lastAt?: number }, at: number): number | undefined =>
+  c.lastAt === undefined ? undefined : Math.max(0, c.lastAt + CACHE_TTL_MS - at)
+
 // The share of input tokens read from the prompt cache: cheaper and faster than sending them again.
 const cachePercent = (c: { read: number; total: number }): number | undefined =>
   c.total > 0 ? Math.round((c.read / c.total) * 100) : undefined
@@ -57,6 +65,11 @@ const cachePercent = (c: { read: number; total: number }): number | undefined =>
 const barText = (ratio: number, width: number): [string, string] => {
   const full = Math.round(Math.min(1, Math.max(0, ratio)) * width)
   return ['█'.repeat(full), '░'.repeat(width - full)]
+}
+
+const fmtMinutes = (ms: number): string => {
+  const m = Math.ceil(ms / 60_000)
+  return m >= 60 ? '60m' : `${m}m`
 }
 
 const fmtClock = (at: number): string => new Date(at).toTimeString().slice(0, 5)
@@ -174,14 +187,19 @@ export const register: Register = on => {
       // In every agent's tool list, not behind ToolSearch: agents do not go looking for it.
       isDeferred: false,
     })
-    // Ticks the clocks of running agents and of sessions not yet heard from; quiet otherwise.
+    // Ticks each second while agents run or sessions are not yet heard from, and each
+    // minute while the cache is warm, for its countdown; quiet otherwise.
     $.clock.every(1000, () => {
       void (async () => {
+        const at = await $.clock.now()
         const isBusy =
           (await read($, agents)).some(a => a.status === 'running') ||
           (await read($, sessions)).some(s => !s.reportedAt && !s.needsInput)
-        if (!isBusy) return
-        const at = await $.clock.now()
+        const { lastAt } = await read($, cache)
+        // One minute past the end too, to draw it going cold.
+        const isCounting = lastAt !== undefined && at - lastAt < CACHE_TTL_MS + 60_000
+        const isNewMinute = Math.floor(at / 60_000) !== Math.floor((await read($, tick)) / 60_000)
+        if (!isBusy && !(isCounting && isNewMinute)) return
         await update($, tick, () => at)
       })()
     })
@@ -250,7 +268,8 @@ export const register: Register = on => {
       if (usage) {
         const read = usage.cache_read_input_tokens || 0
         const total = read + (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0)
-        await update($, cache, c => ({ read: c.read + read, total: c.total + total }))
+        const lastAt = await $.clock.now()
+        await update($, cache, c => ({ read: c.read + read, total: c.total + total, lastAt }))
       }
       const now = await $.clock.now()
       await update($, tick, () => now)
@@ -345,9 +364,8 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
-    const at = await read($, tick)
+    const at = Math.max(await read($, tick), await $.clock.now())
     const usage = await $.session.usage()
-    const percent = fillOf(usage)
 
     // Draw this row with the other mods' bands beneath it. Claude Code's own
     // placeholder ({ type: 'engine' }) is never nested: the desktop drops a band that nests it.
@@ -379,30 +397,31 @@ export const register: Register = on => {
     ]
       .filter(Boolean)
       .join(' · ')
-    const width = Math.max(8, Math.min(24, e.props.bodyColumns - 80))
-    const cached = cachePercent(await read($, cache))
-    const uptime = fmtTime(Math.max(at, await $.clock.now()) - usage.startedAt)
+    const width = Math.max(8, Math.min(20, e.props.bodyColumns - 80))
+    const held = await read($, cache)
+    const cached = cachePercent(held)
+    const left = cacheLeft(held, at)
+    const uptime = fmtTime(at - usage.startedAt)
 
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" gap={1}>
           <Text bold color={ORANGE}>
-            🧠 Context
+            ♻️ Cache
           </Text>
-          {percent === undefined ? (
+          {left === undefined ? (
             <Text dimColor>fills in after the next reply</Text>
+          ) : left === 0 ? (
+            <Text dimColor>❄️ cold: the next reply sends everything again</Text>
           ) : (
             <Box flexDirection="row" gap={1}>
-              {bar(percent / 100, width)}
+              {bar(left / CACHE_TTL_MS, width)}
               <Text bold color={ORANGE}>
-                {percent}% {mood(percent)}
-              </Text>
-              <Text dimColor>
-                {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(usage.context.window)} tokens
+                warm {fmtMinutes(left)} more
               </Text>
             </Box>
           )}
-          {cached !== undefined && <Text dimColor>♻️ cache {cached}%</Text>}
+          {cached !== undefined && <Text dimColor>{cached}% hit</Text>}
           <Text dimColor>🕐 {uptime}</Text>
           {limits && <Text dimColor>📊 limits {limits}</Text>}
           <Button
@@ -445,6 +464,8 @@ export const register: Register = on => {
     const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length] ?? ''
     const limits = limitsText(usage)
     const cached = cachePercent(await read($, cache))
+    // Likewise a worker session that reported all its steps done.
+    const openSessions = workers.filter(s => stateOf(s, at, spin).label !== 'done')
 
     const card = (key: string, isLit: boolean, children: RenderChildren) => (
       <Box key={key} flexDirection="column" borderStyle="round" borderColor={isLit ? ORANGE : undefined} borderDimColor={!isLit} paddingX={1}>
@@ -545,6 +566,7 @@ export const register: Register = on => {
               {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(window)} tokens used
             </Text>
             {cached !== undefined && <Text dimColor>♻️ {cached}% of input read from cache (cheaper and faster)</Text>}
+            {cacheLeft(await read($, cache), at) === 0 && <Text dimColor>❄️ Cache is cold: the next reply sends everything again</Text>}
             <Text dimColor>🕐 Session running for {fmtTime(at - usage.startedAt)}</Text>
             {limits && <Text dimColor>📊 Plan usage limits: {limits}</Text>}
             {percent >= 70 && (
@@ -565,9 +587,10 @@ export const register: Register = on => {
         </Box>
 
         <Box flexDirection="column">
-          {heading('🛰️ Worker sessions', String(workers.length))}
+          {heading('🛰️ Worker sessions', `${openSessions.length} open · ${workers.length - openSessions.length} done`)}
           {workers.length === 0 && <Text dimColor>None started from here.</Text>}
-          {[...workers].reverse().map(sessionCard)}
+          {workers.length > 0 && openSessions.length === 0 && <Text dimColor>All done ✅</Text>}
+          {[...openSessions].reverse().map(sessionCard)}
         </Box>
       </Box>
     )

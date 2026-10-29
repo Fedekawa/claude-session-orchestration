@@ -45,8 +45,8 @@ declare module 'claude-code' {
       agents: Shaped<AgentRun[]>
       sessions: Shaped<WorkerSession[]>
       tick: number
-      /** The orchestrator's input tokens this session, and how many of them were read from the prompt cache. */
-      cache: { read: number; total: number }
+      /** The orchestrator's input tokens this session, how many were read from the prompt cache, and when it last sent a request. */
+      cache: { read: number; total: number; lastAt?: number }
       isAutoOpened: boolean
     }
   }

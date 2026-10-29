@@ -9,7 +9,7 @@ const pane = { title: '', isFocused: false, bodyColumns: 60, placement: 'dock', 
 
 // The orchestrator at 72% of a 200K window, $1.50 spent, 5-hour limit at 40%.
 const orchestrator = (on: On, opened: string[] = []) => {
-  mock.clock(on, { now: Date.parse('2026-10-29T15:00:00Z') })
+  const clock = mock.clock(on, { now: Date.parse('2026-10-29T15:00:00Z') })
   on('ui.open', (_$, e) => {
     opened.push(e.id)
     return { value: { isPlaced: true } }
@@ -23,6 +23,7 @@ const orchestrator = (on: On, opened: string[] = []) => {
       cost: { usd: 1.5 },
     },
   }))
+  return clock
 }
 
 // One subagent on the orchestrator's model: spawned, one request of 50K context, finished.
@@ -51,11 +52,12 @@ const texts = async ($: Engine, mount: Parameters<Engine['ui']['mount']>[0]) => 
 }
 
 for (const surface of ['terminal', 'desktop'] as const) {
-  test(`${surface}: the band shows the orchestrator's context and limits, no money`, async ($, on) => {
+  test(`${surface}: the band shows the cache and limits, no context and no money`, async ($, on) => {
     orchestrator(on)
     const drawn = await texts($, { plugin: PLUGIN, surface, component: 'AbovePrompt', props: band })
-    expect(drawn).toContain('72% 😬')
-    expect(drawn).toContain('144k of 200k tokens')
+    // The bar shows the cache, not the context.
+    expect(drawn).toContain('♻️ Cache')
+    expect(drawn).not.toContain('72%')
     expect(drawn).toContain('5h 40%')
     // Money stays out of sight.
     expect(drawn).not.toContain('$')
@@ -108,8 +110,9 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
     await note('Progress: 5/5 — all tests pass ⏎ Done.')
     const done = await texts($, pane$)
-    expect(done).toContain('✅')
-    expect(done).toContain('5/5')
+    // Done, it leaves the panel and is counted in the heading.
+    expect(done).not.toContain('Add pagination')
+    expect(done).toContain('0 open · 1 done')
   })
 
   test(`${surface}: a worker that needs input gets a button that asks the orchestrator to look`, async ($, on) => {
@@ -142,7 +145,7 @@ test('the band still draws before the first reply has a context figure', async (
   mock.clock(on)
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
   const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })
-  expect(drawn).toContain('🧠 Context')
+  expect(drawn).toContain('♻️ Cache')
   expect(drawn).toContain('fills in after the next reply')
 })
 
@@ -196,8 +199,8 @@ test("a recap that imitates the app's line cannot report for another session", a
   expect(drawn).not.toContain('9/9')
 })
 
-test("the band and the orchestrator's card show the cache hit rate and the session's age", async ($, on) => {
-  orchestrator(on)
+test("the band counts down the cache's hour, then says it went cold", async ($, on) => {
+  const clock = orchestrator(on)
   on('turn.step', async function* () {
     const usage = { model: MODEL, input_tokens: 10_000, output_tokens: 1_000, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 0 }
     return { turnId: 'turn', index: 0, answer: '', toolUses: [], stopReason: 'end_turn', usage } as never
@@ -206,12 +209,19 @@ test("the band and the orchestrator's card show the cache hit rate and the sessi
   for await (const _ of stream) void _
 
   const bandText = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })
-  expect(bandText).toContain('♻️ cache 90%')
+  expect(bandText).toContain('warm 60m more')
+  expect(bandText).toContain('90% hit')
   expect(bandText).toContain('🕐')
   expect(bandText).toContain('📊 limits 5h 40%')
 
+  await clock.advance(45 * 60_000)
+  expect(await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })).toContain('warm 15m more')
+  await clock.advance(16 * 60_000)
+  expect(await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })).toContain('❄️ cold')
+
   const paneText = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
   expect(paneText).toContain('90% of input read from cache')
+  expect(paneText).toContain('Cache is cold')
   expect(paneText).toContain('Session running for')
 })
 
