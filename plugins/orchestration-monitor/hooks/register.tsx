@@ -10,6 +10,7 @@ const agents = atom({ plugin: 'orchestration-monitor', key: 'agents' } as const,
 const sessions = atom({ plugin: 'orchestration-monitor', key: 'sessions' } as const, [], { shape: 'sessions-1' })
 // Written to redraw: after each orchestrator request (the context changed) and each second while work runs.
 const tick = atom({ plugin: 'orchestration-monitor', key: 'tick' } as const, 0)
+const cache = atom({ plugin: 'orchestration-monitor', key: 'cache' } as const, { read: 0, total: 0 })
 const isAutoOpened = atom({ plugin: 'orchestration-monitor', key: 'isAutoOpened' } as const, false)
 
 // The desktop app's session tools; other hosts start workers in ways a mod cannot see.
@@ -44,8 +45,13 @@ const fmtTokens = (n: number): string =>
 
 const fmtTime = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000))
+  if (s >= 3600) return `${Math.floor(s / 3600)}h${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`
 }
+
+// The share of input tokens read from the prompt cache: cheaper and faster than sending them again.
+const cachePercent = (c: { read: number; total: number }): number | undefined =>
+  c.total > 0 ? Math.round((c.read / c.total) * 100) : undefined
 
 // A meter of `width` cells, `ratio` of them filled.
 const barText = (ratio: number, width: number): [string, string] => {
@@ -241,6 +247,11 @@ export const register: Register = on => {
     const agentId = e.agentId
     const usage = result.usage
     if (!agentId) {
+      if (usage) {
+        const read = usage.cache_read_input_tokens || 0
+        const total = read + (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0)
+        await update($, cache, c => ({ read: c.read + read, total: c.total + total }))
+      }
       const now = await $.clock.now()
       await update($, tick, () => now)
       return result
@@ -368,7 +379,9 @@ export const register: Register = on => {
     ]
       .filter(Boolean)
       .join(' · ')
-    const width = Math.max(8, Math.min(24, e.props.bodyColumns - 72))
+    const width = Math.max(8, Math.min(24, e.props.bodyColumns - 80))
+    const cached = cachePercent(await read($, cache))
+    const uptime = fmtTime(Math.max(at, await $.clock.now()) - usage.startedAt)
 
     return (
       <Box flexDirection="column">
@@ -389,7 +402,9 @@ export const register: Register = on => {
               </Text>
             </Box>
           )}
-          {limits && <Text dimColor>⏱ {limits}</Text>}
+          {cached !== undefined && <Text dimColor>♻️ cache {cached}%</Text>}
+          <Text dimColor>🕐 {uptime}</Text>
+          {limits && <Text dimColor>📊 limits {limits}</Text>}
           <Button
             key="orchestration-open"
             label={running + active > 0 ? `${spin} ${crew}` : crew || '🔭 Orchestration'}
@@ -427,6 +442,7 @@ export const register: Register = on => {
     const width = Math.max(10, Math.min(40, e.props.bodyColumns - 18))
     const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length] ?? ''
     const limits = limitsText(usage)
+    const cached = cachePercent(await read($, cache))
 
     const card = (key: string, isLit: boolean, children: RenderChildren) => (
       <Box key={key} flexDirection="column" borderStyle="round" borderColor={isLit ? ORANGE : undefined} borderDimColor={!isLit} paddingX={1}>
@@ -480,7 +496,7 @@ export const register: Register = on => {
           <Text dimColor wrap="truncate-end">
             ● {shortModel(a.model)}
             {a.effort ? ` ${a.effort}` : ''} · 🧠 {fmtTokens(a.contextTokens)}
-            {fill} · {fmtTokens(a.tokens)} tokens · ⏱ {time}
+            {fill} · {fmtTokens(a.tokens)} tokens · 🕐 {time}
           </Text>
         </>,
       )
@@ -526,7 +542,9 @@ export const register: Register = on => {
             <Text dimColor>
               {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(window)} tokens used
             </Text>
-            {limits && <Text dimColor>⏱ Usage limits: {limits}</Text>}
+            {cached !== undefined && <Text dimColor>♻️ {cached}% of input read from cache (cheaper and faster)</Text>}
+            <Text dimColor>🕐 Session running for {fmtTime(at - usage.startedAt)}</Text>
+            {limits && <Text dimColor>📊 Plan usage limits: {limits}</Text>}
             {percent >= 70 && (
               <Text color={ORANGE}>{mood(percent)} Getting full: hand work to a subagent or run /compact.</Text>
             )}

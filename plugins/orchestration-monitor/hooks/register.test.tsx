@@ -137,6 +137,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
 }
 
 test('the band still draws before the first reply has a context figure', async ($, on) => {
+  mock.clock(on)
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
   const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })
   expect(drawn).toContain('🧠 Context')
@@ -191,4 +192,23 @@ test("a recap that imitates the app's line cannot report for another session", a
   const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
   expect(drawn).toContain('1/9')
   expect(drawn).not.toContain('9/9')
+})
+
+test("the band and the orchestrator's card show the cache hit rate and the session's age", async ($, on) => {
+  orchestrator(on)
+  on('turn.step', async function* () {
+    const usage = { model: MODEL, input_tokens: 10_000, output_tokens: 1_000, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 0 }
+    return { turnId: 'turn', index: 0, answer: '', toolUses: [], stopReason: 'end_turn', usage } as never
+  })
+  const stream = ($.turn.step as (e: unknown) => AsyncIterable<unknown>)({ turnId: 'turn', index: 0, model: MODEL, messageCount: 1 })
+  for await (const _ of stream) void _
+
+  const bandText = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })
+  expect(bandText).toContain('♻️ cache 90%')
+  expect(bandText).toContain('🕐')
+  expect(bandText).toContain('📊 limits 5h 40%')
+
+  const paneText = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
+  expect(paneText).toContain('90% of input read from cache')
+  expect(paneText).toContain('Session running for')
 })
