@@ -46,13 +46,14 @@ const texts = async ($: Engine, mount: Parameters<Engine['ui']['mount']>[0]) => 
 }
 
 for (const surface of ['terminal', 'desktop'] as const) {
-  test(`${surface}: the band shows the lead's context, cost and limits`, async ($, on) => {
+  test(`${surface}: the band shows the lead's context and limits, no money`, async ($, on) => {
     lead(on)
     const drawn = await texts($, { plugin: PLUGIN, surface, component: 'AbovePrompt', props: band })
-    expect(drawn).toContain('ctx 72%')
-    expect(drawn).toContain('144k/200k')
-    expect(drawn).toContain('$1.50')
+    expect(drawn).toContain('72% 😬')
+    expect(drawn).toContain('144k of 200k tokens')
     expect(drawn).toContain('5h 40%')
+    // Money stays out of sight.
+    expect(drawn).not.toContain('$')
   })
 
   test(`${surface}: a subagent's run shows in the panel and opens it once`, async ($, on) => {
@@ -61,14 +62,15 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await subagent($, on)
 
     const running = await texts($, { plugin: PLUGIN, surface, component: 'Pane', requestId: 'orchestration', props: pane })
-    expect(running).toContain('▸ Write the parser')
-    expect(running).toContain('ctx 50k (25%)')
-    expect(running).toContain('1 running · 0 finished')
+    expect(running).toContain('Write the parser')
+    expect(running).toContain('🧠 50k (25%)')
+    expect(running).toContain('1 working · 0 done')
 
     await ($.turn.complete as (e: unknown) => Promise<unknown>)({ agentId: 'a1', reason: 'answer', answer: 'ok' })
     const done = await texts($, { plugin: PLUGIN, surface, component: 'Pane', requestId: 'orchestration', props: pane })
-    expect(done).toContain('✓ Write the parser')
-    expect(done).toContain('0 running · 1 finished')
+    expect(done).toContain('✅')
+    expect(done).toContain('0 working · 1 done')
+    expect(done).not.toContain('$')
     expect(opened).toEqual(['orchestration'])
   })
 
@@ -79,11 +81,19 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await $.tool.call({ tool: 'mcp__ccd_session__start_session', title: 'Add pagination', initiation: 'user_asked' } as never)
 
     const waiting = await texts($, { plugin: PLUGIN, surface, component: 'Pane', requestId: 'orchestration', props: pane })
-    expect(waiting).toContain('… Add pagination')
-    expect(waiting).toContain('no report yet')
+    expect(waiting).toContain('⏳')
+    expect(waiting).toContain('Add pagination')
+    expect(waiting).toContain('waiting for report')
 
     await ($.session.receive as (e: unknown) => Promise<unknown>)({ origin: { kind: 'unclassified' }, text: '<side-sessions-event> local_abc123 ended its turn' })
     const reported = await texts($, { plugin: PLUGIN, surface, component: 'Pane', requestId: 'orchestration', props: pane })
-    expect(reported).toContain('✓ Add pagination')
+    expect(reported).toContain('📨')
   })
 }
+
+test('the band still draws before the first reply has a context figure', async ($, on) => {
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200_000 }, rateLimits: [] } }))
+  const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'AbovePrompt', props: band })
+  expect(drawn).toContain('🧠 Context')
+  expect(drawn).toContain('fills in after the next reply')
+})

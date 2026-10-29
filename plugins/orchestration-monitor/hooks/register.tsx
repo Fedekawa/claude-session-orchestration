@@ -18,6 +18,24 @@ const SESSION_TOOLS = /^mcp__ccd_session__(start_session|hand_off_to_session)$/
 const OK = '#5fbf8f'
 const WARN = '#e0a23a'
 const HOT = '#e5534b'
+const ACCENT = '#8f8cf4'
+const SKY = '#4fb3d9'
+const PINK = '#e07bd8'
+// One colour per row of the context breakdown, in turn.
+const PALETTE = [ACCENT, SKY, OK, WARN, PINK, HOT]
+const SPINNER = ['◐', '◓', '◑', '◒']
+
+const modelColor = (model: string): string =>
+  /fable/i.test(model) ? '#e8b84a' : /opus/i.test(model) ? '#a78bfa' : /sonnet/i.test(model) ? SKY : /haiku/i.test(model) ? OK : '#9aa0a6'
+
+const mood = (percent: number): string => (percent >= 85 ? '🥵' : percent >= 70 ? '😬' : percent >= 40 ? '🙂' : '😎')
+
+// The window's fill: the engine's own percentage, else worked out from the tokens.
+const fillOf = (usage: SessionUsage): number | undefined =>
+  usage.context.percent ??
+  (usage.context.tokens !== undefined && usage.context.window
+    ? Math.round((usage.context.tokens / usage.context.window) * 100)
+    : undefined)
 
 const fmtTokens = (n: number): string =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1000 ? `${Math.round(n / 1000)}k` : String(n)
@@ -25,6 +43,12 @@ const fmtTokens = (n: number): string =>
 const fmtTime = (ms: number): string => {
   const s = Math.max(0, Math.round(ms / 1000))
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`
+}
+
+// A meter of `width` cells, `ratio` of them filled.
+const barText = (ratio: number, width: number): [string, string] => {
+  const full = Math.round(Math.min(1, Math.max(0, ratio)) * width)
+  return ['█'.repeat(full), '░'.repeat(width - full)]
 }
 
 const fmtClock = (at: number): string => new Date(at).toTimeString().slice(0, 5)
@@ -207,10 +231,9 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
-    await read($, tick)
+    const at = await read($, tick)
     const usage = await $.session.usage()
-    const percent = usage.context.percent
-    if (percent === undefined) return next(e)
+    const percent = fillOf(usage)
 
     // Draw this row with the other mods' bands beneath it. Claude Code's own
     // placeholder ({ type: 'engine' }) is never nested: the desktop drops a band that nests it.
@@ -218,25 +241,49 @@ export const register: Register = on => {
     const below = drawn && typeof drawn === 'object' && (drawn as { type?: string }).type !== 'engine' ? drawn : null
 
     const { Box, Text, Button } = $.ui.resolve(e)
+    const bar = (ratio: number, w: number, color: string) => {
+      const [full, empty] = barText(ratio, w)
+      return (
+        <Box flexDirection="row">
+          <Text color={color}>{full}</Text>
+          <Text dimColor>{empty}</Text>
+        </Box>
+      )
+    }
     const list = await read($, agents)
     const workers = await read($, sessions)
     const running = list.filter(a => a.status === 'running').length
     const waiting = workers.filter(s => !s.reportedAt).length
     const limits = limitsText(usage)
-    const crew = [running > 0 && `${running} agent${running === 1 ? '' : 's'}`, waiting > 0 && `${waiting} session${waiting === 1 ? '' : 's'}`]
-      .filter(Boolean)
-      .join(' · ')
+    const crew = [running > 0 && `🤖 ${running} working`, waiting > 0 && `🛰️ ${waiting} waiting`].filter(Boolean).join(' · ')
+    const width = Math.max(8, Math.min(24, e.props.bodyColumns - 72))
 
     return (
       <Box flexDirection="column">
-        <Box flexDirection="row" gap={2}>
-          <Text color={heat(percent)}>● ctx {percent}%</Text>
-          <Text dimColor>
-            {fmtTokens(usage.context.tokens ?? 0)}/{fmtTokens(usage.context.window)}
+        <Box flexDirection="row" gap={1}>
+          <Text bold color={ACCENT}>
+            🧠 Context
           </Text>
-          {usage.cost && <Text dimColor>${usage.cost.usd.toFixed(2)}</Text>}
-          {limits && <Text dimColor>{limits}</Text>}
-          <Button key="orchestration-open" label={crew || 'panel'} plain onPress={() => void togglePane($)} />
+          {percent === undefined ? (
+            <Text dimColor>fills in after the next reply</Text>
+          ) : (
+            <Box flexDirection="row" gap={1}>
+              {bar(percent / 100, width, heat(percent))}
+              <Text bold color={heat(percent)}>
+                {percent}% {mood(percent)}
+              </Text>
+              <Text dimColor>
+                {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(usage.context.window)} tokens
+              </Text>
+            </Box>
+          )}
+          {limits && <Text color={SKY}>⏱ {limits}</Text>}
+          <Button
+            key="orchestration-open"
+            label={running > 0 ? `${SPINNER[Math.floor(at / 1000) % SPINNER.length]} ${crew}` : crew || '🔭 Orchestration'}
+            plain
+            onPress={() => void togglePane($)}
+          />
         </Box>
         {below}
       </Box>
@@ -245,36 +292,55 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
+    const bar = (ratio: number, w: number, color: string) => {
+      const [full, empty] = barText(ratio, w)
+      return (
+        <Box flexDirection="row">
+          <Text color={color}>{full}</Text>
+          <Text dimColor>{empty}</Text>
+        </Box>
+      )
+    }
     const at = Math.max(await read($, tick), await $.clock.now())
     const usage = await $.session.usage({ breakdown: 'summary', columns: e.props.bodyColumns })
     const list = await read($, agents)
     const workers = await read($, sessions)
-    const percent = usage.context.percent ?? 0
+    const percent = fillOf(usage) ?? 0
     const window = usage.context.window
     const leadModel = await $.session.model()
     const used = (usage.context.breakdown?.categories ?? [])
       .filter(c => c.kind === 'used' && c.tokens > 0)
       .sort((a, b) => b.tokens - a.tokens)
+    const biggest = used[0]?.tokens ?? 1
     const running = list.filter(a => a.status === 'running').reverse()
     const finished = list.filter(a => a.status !== 'running').reverse()
     const agentTokens = list.reduce((sum, a) => sum + a.tokens, 0)
+    const width = Math.max(10, Math.min(40, e.props.bodyColumns - 14))
+    const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length]
+    const limits = limitsText(usage)
 
     const agentRow = (a: AgentRun) => {
       // A subagent on the lead's model has the lead's window; for any other only the count is sure.
       const fill = a.model === leadModel && window ? ` (${Math.round((a.contextTokens / window) * 100)}%)` : ''
       const time = fmtTime((a.endedAt ?? at) - a.startedAt)
-      const mark = a.status === 'running' ? '▸' : a.status === 'done' ? '✓' : '✕'
+      const mark = a.status === 'running' ? spin : a.status === 'done' ? '✅' : '💥'
       return (
         <Box key={a.id} flexDirection="column">
-          <Text color={a.status === 'failed' ? HOT : undefined} dimColor={a.status === 'done'} wrap="truncate-end">
-            {mark} {a.description || a.type}
-          </Text>
-          <Text dimColor wrap="truncate-end">
-            {'  '}
-            {a.type} · {shortModel(a.model)}
-            {a.effort ? ` ${a.effort}` : ''} · ctx {fmtTokens(a.contextTokens)}
-            {fill} · {fmtTokens(a.tokens)} tok · {time}
-          </Text>
+          <Box flexDirection="row" gap={1}>
+            <Text color={a.status === 'running' ? ACCENT : undefined}>{mark}</Text>
+            <Text bold={a.status === 'running'} color={a.status === 'failed' ? HOT : undefined} wrap="truncate-end">
+              {a.description || a.type}
+            </Text>
+          </Box>
+          <Box flexDirection="row" gap={1}>
+            <Text> </Text>
+            <Text color={modelColor(a.model)}>● {shortModel(a.model)}</Text>
+            {a.effort && <Text color={PINK}>{a.effort}</Text>}
+            <Text dimColor wrap="truncate-end">
+              {a.type} · 🧠 {fmtTokens(a.contextTokens)}
+              {fill} · {fmtTokens(a.tokens)} tokens · ⏱ {time}
+            </Text>
+          </Box>
         </Box>
       )
     }
@@ -282,42 +348,78 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="column">
-          <Text bold>Lead</Text>
-          <Text color={heat(percent)}>
-            ctx {percent}% · {fmtTokens(usage.context.tokens ?? 0)}/{fmtTokens(window)} · {shortModel(leadModel)}
-          </Text>
-          <Text dimColor>
-            {usage.cost ? `$${usage.cost.usd.toFixed(2)} this session` : ''}
-            {usage.cost && usage.rateLimits.length ? ' · ' : ''}
-            {limitsText(usage)}
-          </Text>
-          {used.slice(0, 6).map(c => (
-            <Text key={`cat-${c.name}`} dimColor wrap="truncate-end">
-              {'  '}
-              {c.name}: {fmtTokens(c.tokens)}
+          <Box flexDirection="row" gap={1}>
+            <Text bold color={ACCENT}>
+              🧠 Lead
             </Text>
-          ))}
-          {percent >= 70 && <Text color={heat(percent)}>Near auto-compact: delegate or /compact soon.</Text>}
+            <Text color={modelColor(leadModel)}>● {shortModel(leadModel)}</Text>
+          </Box>
+          <Box flexDirection="row" gap={1}>
+            {bar(percent / 100, width, heat(percent))}
+            <Text bold color={heat(percent)}>
+              {percent}% {mood(percent)}
+            </Text>
+          </Box>
+          <Text dimColor>
+            {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(window)} tokens used
+          </Text>
+          {limits && <Text color={SKY}>⏱ Usage limits: {limits}</Text>}
+          {percent >= 70 && (
+            <Text color={heat(percent)}>{mood(percent)} Getting full: hand work to a subagent or run /compact.</Text>
+          )}
         </Box>
 
+        {used.length > 0 && (
+          <Box flexDirection="column">
+            <Text bold color={SKY}>
+              📦 What fills the context
+            </Text>
+            {used.slice(0, 6).map((c, i) => (
+              <Box key={`cat-${c.name}`} flexDirection="row" gap={1}>
+                {bar(c.tokens / biggest, 10, PALETTE[i % PALETTE.length] ?? ACCENT)}
+                <Text>{fmtTokens(c.tokens)}</Text>
+                <Text dimColor wrap="truncate-end">
+                  {c.name}
+                </Text>
+              </Box>
+            ))}
+          </Box>
+        )}
+
         <Box flexDirection="column">
-          <Text bold>
-            Subagents · {running.length} running · {finished.length} finished
-            {agentTokens ? ` · ${fmtTokens(agentTokens)} tok` : ''}
-          </Text>
-          {list.length === 0 && <Text dimColor>None yet.</Text>}
+          <Box flexDirection="row" gap={1}>
+            <Text bold color={OK}>
+              🤖 Subagents
+            </Text>
+            <Text dimColor>
+              {running.length} working · {finished.length} done
+              {agentTokens ? ` · ${fmtTokens(agentTokens)} tokens` : ''}
+            </Text>
+          </Box>
+          {list.length === 0 && <Text dimColor>None yet. 💤</Text>}
           {running.map(agentRow)}
           {finished.map(agentRow)}
         </Box>
 
         <Box flexDirection="column">
-          <Text bold>Worker sessions · {workers.length}</Text>
+          <Box flexDirection="row" gap={1}>
+            <Text bold color={PINK}>
+              🛰️ Worker sessions
+            </Text>
+            <Text dimColor>{workers.length}</Text>
+          </Box>
           {workers.length === 0 && <Text dimColor>None started from here.</Text>}
           {[...workers].reverse().map(s => (
-            <Text key={s.id} dimColor={!!s.reportedAt} wrap="truncate-end">
-              {s.reportedAt ? '✓' : '…'} {s.title} · started {fmtClock(s.startedAt)}
-              {s.reportedAt ? ` · reported ${fmtClock(s.reportedAt)}` : ' · no report yet'}
-            </Text>
+            <Box key={s.id} flexDirection="row" gap={1}>
+              <Text>{s.reportedAt ? '📨' : '⏳'}</Text>
+              <Text bold={!s.reportedAt} wrap="truncate-end">
+                {s.title}
+              </Text>
+              <Text dimColor>
+                started {fmtClock(s.startedAt)}
+                {s.reportedAt ? ` · reported ${fmtClock(s.reportedAt)}` : ' · waiting for report'}
+              </Text>
+            </Box>
           ))}
         </Box>
       </Box>

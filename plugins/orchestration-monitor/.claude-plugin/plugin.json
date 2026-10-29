@@ -1,7 +1,7 @@
 {
   "name": "orchestration-monitor",
   "version": "0.1.0",
-  "description": "A context band above the prompt and an /orchestration panel: the lead's context fill, tokens, cost and rate limits, its subagents, and the worker sessions it started.",
+  "description": "A context band above the prompt and an /orchestration panel: the lead's context fill, tokens and usage limits, its subagents, and the worker sessions it started.",
   "author": {
     "name": "Fedekawa",
     "url": "https://github.com/Fedekawa"
