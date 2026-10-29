@@ -1,1 +1,3 @@
 .DS_Store
+# Laid by Claude Code when it loads a mod; not source.
+plugins/*/.claude-plugin/types/

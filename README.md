@@ -95,6 +95,14 @@ Three rules carry most of the value:
 
 The agents never edit files. Models are set in each agent's frontmatter (`opus` for the planner and reviewer, `sonnet` for the auditor); change them to taste, or use `inherit` to follow your session's model.
 
+### Optional mod: orchestration-monitor
+
+A separate plugin in this marketplace, for watching an orchestration live: the lead's context fill, tokens, cost and rate limits above the prompt, and an `/orchestration` panel listing subagents and worker sessions. Unlike the skills it ships code (a TypeScript hooks module). See [its README](plugins/orchestration-monitor/README.md).
+
+```text
+/plugin install orchestration-monitor@session-orchestration
+```
+
 ### Installed names
 
 Plugin components are namespaced, and `subagent_type` must match exactly:
