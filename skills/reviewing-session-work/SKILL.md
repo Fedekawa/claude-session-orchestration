@@ -5,7 +5,7 @@ description: Review a worker session's or subagent's result before accepting it.
 
 # Reviewing Session Work
 
-A worker's report is a claim. As lead, your job is to turn claims into verified facts before they reach the user. Workers are usually honest, and usually optimistic: they cannot see what they did not think to check.
+A worker's report is a claim. As orchestrator, your job is to turn claims into verified facts before they reach the user. Workers are usually honest, and usually optimistic: they cannot see what they did not think to check.
 
 ## Procedure
 

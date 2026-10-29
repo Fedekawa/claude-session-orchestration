@@ -1,11 +1,11 @@
 ---
 name: self-review-before-handoff
-description: A pre-report gate for a worker. Sync the docs, commit, review your own diff against the brief, run the checks and write an honest report before handing work to a lead or reviewer. Use before saying done, before opening a PR, and before reporting to an orchestrator.
+description: A pre-report gate for a worker. Sync the docs, commit, review your own diff against the brief, run the checks and write an honest report before handing work to an orchestrator or reviewer. Use before saying done, before opening a PR, and before reporting to an orchestrator.
 ---
 
 # Self-Review Before Handoff
 
-You are biased toward your own work. This gate exists to catch the cheap problems (the ones a reviewer should never have to spend time on) and to produce the evidence your report needs. The lead still verifies; your job is to make verification boring.
+You are biased toward your own work. This gate exists to catch the cheap problems (the ones a reviewer should never have to spend time on) and to produce the evidence your report needs. The orchestrator still verifies; your job is to make verification boring.
 
 The order matters and follows the rule **code, then docs, then self-review**: docs are written once the code has settled, and the review covers the docs too.
 
@@ -18,7 +18,7 @@ The order matters and follows the rule **code, then docs, then self-review**: do
    ```bash
    git status --short   # must print nothing
    ```
-   Uncommitted or untracked work is invisible to the lead and to reviewers, and is lost if the worktree is removed.
+   Uncommitted or untracked work is invisible to the orchestrator and to reviewers, and is lost if the worktree is removed.
 5. **Read your whole diff** as a reviewer who did not write it, code and docs together. The base is in the brief:
    ```bash
    git diff <base>...HEAD
@@ -50,4 +50,4 @@ If any of these is true, fix it or report it. Do not hide it in a summary.
 
 ## What this gate is not
 
-It is not a substitute for the lead's review, and it is not a reason to expand scope. If self-review turns up a larger problem than the brief allows, report it and let the lead decide.
+It is not a substitute for the orchestrator's review, and it is not a reason to expand scope. If self-review turns up a larger problem than the brief allows, report it and let the orchestrator decide.

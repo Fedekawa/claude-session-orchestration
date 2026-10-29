@@ -1,7 +1,7 @@
 {
   "name": "session-orchestration",
   "version": "0.2.0",
-  "description": "Skills and agents for running a lead (orchestrator) Claude Code session with worker sessions: briefs, isolation, review, integration, plus a docs-vs-code sync and a self-review gate before handoff.",
+  "description": "Skills and agents for running an orchestrator Claude Code session with worker sessions: briefs, isolation, review, integration, plus a docs-vs-code sync and a self-review gate before handoff.",
   "author": {
     "name": "Fedekawa",
     "url": "https://github.com/Fedekawa"

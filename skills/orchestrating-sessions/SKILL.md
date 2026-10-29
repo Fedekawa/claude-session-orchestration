@@ -1,11 +1,11 @@
 ---
 name: orchestrating-sessions
-description: Run a lead (orchestrator) session that splits a task across worker sessions or subagents, hands each a brief, tracks them, reviews what comes back and integrates the result. Use when a task has two or more independent parts, when you are the master or lead session coordinating others, or when deciding whether work should run here, in a subagent or in its own session.
+description: Run an orchestrator session that splits a task across worker sessions or subagents, hands each a brief, tracks them, reviews what comes back and integrates the result. Use when a task has two or more independent parts, when you are the orchestrator (also called the lead, master or main session) coordinating others, or when deciding whether work should run here, in a subagent or in its own session.
 ---
 
 # Orchestrating Sessions
 
-You are the lead. You own the goal, the decisions, the relationship with the user and the integration. Each worker owns the details of one bounded task. Your value is the split, the briefs and the review, not typing code in parallel with your workers.
+You are the orchestrator. You own the goal, the decisions, the relationship with the user and the integration. Each worker owns the details of one bounded task. Your value is the split, the briefs and the review, not typing code in parallel with your workers.
 
 One standard applies to every session, yours included: the most elegant code is the simplest that solves the problem. Write nothing speculative, change only what the task requires, and hold your workers to the same bar (the brief template and `working-as-a-session` carry it; the reviews enforce it).
 
@@ -135,7 +135,7 @@ One decision per question. Two unrelated decisions are two questions. If your ho
 
 ## Anti-patterns
 
-- The lead implementing a worker's task "while waiting".
+- The orchestrator implementing a worker's task "while waiting".
 - Briefs like "based on your findings, fix it". Hand over the understanding, not only the task.
 - A session for a five-minute task.
 - Two writers on one file set, or in one checkout.
