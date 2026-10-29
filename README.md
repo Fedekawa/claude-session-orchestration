@@ -22,24 +22,44 @@ claude --plugin-dir ./claude-session-orchestration
 
 ## The model in sixty seconds
 
-```text
-            user
-              |
-            LEAD  -- owns goal, decisions, integration, the user conversation
-           /  |  \
-      brief brief brief       one self-contained brief per worker
-        |     |     |
-     worker worker worker     each on its own branch / worktree
-        |     |     |
-   self-review + docs sync    before reporting
-        |     |     |
-      report report report    a claim, not proof
-           \  |  /
-            LEAD  -- verifies (diff, re-run checks), integrates,
-              |       runs the full checks and one docs pass
-              v
-   summary + recommendation --> the user decides merge / push
+```mermaid
+flowchart TD
+    user(["You give the goal"])
+
+    subgraph P1 ["① LEAD PLANS"]
+        plan["Split only if parts are<br/>independent, in separate<br/>files, and checkable.<br/>Write one brief per worker."]
+    end
+
+    subgraph P2 ["② WORKERS BUILD"]
+        wa["Worker A<br/>own branch"]
+        wb["Worker B<br/>own branch"]
+        wc["Worker C<br/>own branch"]
+        report["Each worker self-reviews,<br/>then sends a report<br/>(a claim, not proof)"]
+        wa & wb & wc --> report
+    end
+
+    subgraph P3 ["③ LEAD VERIFIES"]
+        review["Check the diff,<br/>re-run the checks.<br/>Problems? Send findings<br/>back to the same worker."]
+        integrate["Merge into integrate/goal.<br/>Full checks, one docs pass."]
+        review -- "accept" --> integrate
+    end
+
+    done(["Summary +<br/>recommendation<br/>You decide:<br/>merge, push or PR"])
+
+    user --> P1 --> P2 --> P3 --> done
+
+    classDef you fill:#f1f5f9,stroke:#475569,color:#0f172a
+    classDef lead fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+    classDef worker fill:#dcfce7,stroke:#15803d,color:#0f172a
+    class user,done you
+    class plan,review,integrate lead
+    class wa,wb,wc,report worker
+    style P1 fill:none,stroke:#94a3b8,stroke-dasharray:5 4
+    style P2 fill:none,stroke:#94a3b8,stroke-dasharray:5 4
+    style P3 fill:none,stroke:#94a3b8,stroke-dasharray:5 4
 ```
+
+Skills by phase: ① `orchestrating-sessions`, `writing-session-briefs` · ② `working-as-a-session`, `self-review-before-handoff`, `syncing-docs-with-code` · ③ `reviewing-session-work`, `orchestrating-sessions`, `syncing-docs-with-code`.
 
 Three rules carry most of the value:
 
