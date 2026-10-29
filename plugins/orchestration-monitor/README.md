@@ -2,6 +2,8 @@
 
 A Claude Code mod that shows what an orchestrator session is doing, how much room it has left and whether its cache is still warm. It goes with the `session-orchestration` skills and works on its own.
 
+![The cache band above the prompt and the orchestration panel on the right, in the Claude desktop app](assets/screenshot.webp)
+
 "Context" is the orchestrator's context window: how much of what the model can hold at once is already used. When it fills up, Claude Code compacts the conversation and detail is lost, so an orchestrator wants to see it coming.
 
 - **Cache band**, above the prompt:
