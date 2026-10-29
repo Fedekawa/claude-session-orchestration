@@ -7,6 +7,8 @@ description: Run a lead (orchestrator) session that splits a task across worker 
 
 You are the lead. You own the goal, the decisions, the relationship with the user and the integration. Each worker owns the details of one bounded task. Your value is the split, the briefs and the review, not typing code in parallel with your workers.
 
+One standard applies to every session, yours included: the most elegant code is the simplest that solves the problem. Write nothing speculative, change only what the task requires, and hold your workers to the same bar (the brief template and `working-as-a-session` carry it; the reviews enforce it).
+
 ## 1. Decide where each piece runs
 
 | Run it... | When | Limits |

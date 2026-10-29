@@ -113,6 +113,7 @@ Headless workers have nobody to answer permission prompts. Pre-approve only what
 - **One writer per file, one owner per shared file.** Lockfiles, index exports, route tables, migrations, schemas, `CLAUDE.md`, top-level README and CHANGELOG all have exactly one owner, usually the lead at integration.
 - **Contracts first.** When parts share an interface, the lead commits it before dispatching, and workers receive it read-only.
 - **Safe by default.** Workers do not push, open PRs, deploy, migrate or touch production unless the brief says so and a human approved it.
+- **The simplest code that works is the most elegant.** Every worker starts from this standard, every brief can restate it, and every review treats speculative abstractions, unrequested options and non-surgical edits as findings. Adapted from [Andrej Karpathy's notes on LLM coding pitfalls](https://x.com/karpathy/status/2015883857489522876).
 - **Docs are part of the change.** Code, then docs, then self-review, then lead review. Code wins over docs that describe behaviour; specs and ADRs are never silently overruled.
 - **Escalate early.** A fast, well-described blocker beats three more attempts at the same wall.
 - **Honest reports.** "Verified" means run and observed. Failing checks are reported as failing.

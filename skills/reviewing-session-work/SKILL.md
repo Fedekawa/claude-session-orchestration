@@ -24,6 +24,7 @@ A worker's report is a claim. As lead, your job is to turn claims into verified 
    - swallowed errors, broad catches, silent fallbacks
    - debug leftovers, secrets, stray files
    - scope creep: refactors nobody asked for
+   - over-engineering: abstractions, options, layers or error handling the brief did not call for; code that could be a third of its size
 6. **Docs check, check-only.** Did the docs that describe the changed behaviour change too? Use `syncing-docs-with-code` to find drift (its steps 1-4, 6 and 7, never step 5), or for a wide change the `docs-drift-auditor` agent (`session-orchestration:docs-drift-auditor`). Do not edit the worker's branch: send drift back as a numbered finding. Shared docs wait for the integration pass.
 7. **Verdict.**
    - **Accept.** Verified, in scope, docs right.

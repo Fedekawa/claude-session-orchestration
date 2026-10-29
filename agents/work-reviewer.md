@@ -20,6 +20,7 @@ Your own working directory is probably not the tree under review, and it may res
 4. **Done-when:** for each item, find direct evidence in the diff or in a check you ran. "The report says so" is not evidence.
 5. **Run the checks** the project has. Compare the results with the report; a mismatch is a finding.
 6. **Hunt for weakened bars:** new `@ts-ignore`, `eslint-disable`, `# noqa`, `skip`, `xfail`; deleted or loosened assertions; lowered thresholds; swallowed errors; stubs and `TODO`s; hardcoded values; debug leftovers; secrets.
+   **And for over-engineering:** abstractions, options, layers or error handling the brief did not call for; changes to lines the brief gave no reason to touch. The simplest code that meets the brief is the standard; more is a finding.
 7. **Correctness:** edge cases, error paths, empty and null inputs, ordering, concurrency, and whether the new tests would fail without the change.
 8. **Docs:** do the docs that describe the changed behaviour still match?
 
