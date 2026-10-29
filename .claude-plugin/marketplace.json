@@ -30,7 +30,7 @@
     {
       "name": "orchestration-monitor",
       "source": "./plugins/orchestration-monitor",
-      "description": "A context band above the prompt and an /orchestration panel: the lead's context fill, tokens and usage limits, its subagents, and the worker sessions it started.",
+      "description": "A context band above the prompt and an /orchestration panel: the orchestrator's context fill, tokens and usage limits, its subagents, and the worker sessions it started.",
       "version": "0.1.0",
       "author": {
         "name": "Fedekawa"

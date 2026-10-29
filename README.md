@@ -97,7 +97,7 @@ The agents never edit files. Models are set in each agent's frontmatter (`opus` 
 
 ### Optional mod: orchestration-monitor
 
-A separate plugin in this marketplace, for watching an orchestration live: the lead's context fill, tokens and usage limits above the prompt, and an `/orchestration` panel with each subagent's and worker session's progress, and a button to ask the orchestrator to look at a stalled one. Unlike the skills it ships code (a TypeScript hooks module). See [its README](plugins/orchestration-monitor/README.md).
+A separate plugin in this marketplace, for watching an orchestration live: the orchestrator's context fill, tokens and usage limits above the prompt, and an `/orchestration` panel with each subagent's and worker session's progress, and a button to ask the orchestrator to look at a stalled one. Unlike the skills it ships code (a TypeScript hooks module). See [its README](plugins/orchestration-monitor/README.md).
 
 ```text
 /plugin install orchestration-monitor@session-orchestration

@@ -31,9 +31,9 @@ export type WorkerSession = {
   /** The host's id for it (`local_…`), when its start result named one. */
   sessionId?: string
   startedAt: number
-  /** When its latest end-of-turn note arrived; cleared when the lead messages it again. */
+  /** When its latest end-of-turn note arrived; cleared when the orchestrator messages it again. */
   reportedAt?: number
-  /** From the `Progress: n/m — note` line its brief asks it to lead each recap with. */
+  /** From the `Progress: n/m — note` line its brief asks it to start each recap with. */
   progress?: SessionProgress
   /** From a `Needs input: …` line: what it is waiting on. */
   needsInput?: string

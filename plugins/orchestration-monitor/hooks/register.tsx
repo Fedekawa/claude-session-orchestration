@@ -8,7 +8,7 @@ const PANE = 'orchestration'
 // version stored, which outlives a reload.
 const agents = atom({ plugin: 'orchestration-monitor', key: 'agents' } as const, [], { shape: 'agents-1' })
 const sessions = atom({ plugin: 'orchestration-monitor', key: 'sessions' } as const, [], { shape: 'sessions-1' })
-// Written to redraw: after each lead request (the context changed) and each second while work runs.
+// Written to redraw: after each orchestrator request (the context changed) and each second while work runs.
 const tick = atom({ plugin: 'orchestration-monitor', key: 'tick' } as const, 0)
 const isAutoOpened = atom({ plugin: 'orchestration-monitor', key: 'isAutoOpened' } as const, false)
 
@@ -19,7 +19,7 @@ const STEP_TOOL = 'mcp__orchestration-monitor__step'
 const STEP_BRIEF = `
 
 Progress reporting: before any other work, call \`${STEP_TOOL}\` with \`total\` (your plan in 3-8 steps) and \`done: 0\`; call it again with \`done\` and a few-word \`note\` as each step finishes. It only draws a progress bar for the orchestrator.`
-// Added to the end of each worker session's brief: its end-of-turn note is all the lead hears of it.
+// Added to the end of each worker session's brief: its end-of-turn note is all the orchestrator hears of it.
 const SESSION_BRIEF = `
 
 Progress reporting for the orchestrator: start every end-of-turn summary with one line \`Progress: <done>/<total> — <a few words>\` (your plan in 3-8 steps). If you stop because you need an answer or a decision, start it with \`Needs input: <the question>\` instead.`
@@ -70,11 +70,12 @@ function activityOf(tool: string, input: Record<string, unknown>): string {
   return hint ? `${name} ${String(hint).slice(0, 60)}` : name
 }
 
+// `reason` is fixed wording: the Look prompt sends it as the person's own words.
 type SessionState = { mark: string; label: string; reason?: string }
 
-// What the panel can say of a worker session from what reached the lead.
+// What the panel can say of a worker session from what reached the orchestrator.
 function stateOf(s: WorkerSession, at: number, spin: string): SessionState {
-  if (s.needsInput) return { mark: '🙋', label: `needs input: ${s.needsInput}`, reason: `it says it needs input: "${s.needsInput}"` }
+  if (s.needsInput) return { mark: '🙋', label: `needs input: ${s.needsInput}`, reason: 'its last report says it needs input' }
   if (s.progress && s.progress.total > 0 && s.progress.done >= s.progress.total) return { mark: '✅', label: 'done' }
   if (s.reportedAt) {
     return { mark: '📨', label: `paused at ${fmtClock(s.reportedAt)}, not done`, reason: 'it ended its turn without saying it is done' }
@@ -99,32 +100,37 @@ async function togglePane($: EngineInterface): Promise<boolean> {
   return true
 }
 
-// Opens the panel by itself once per session, the first time the lead delegates.
+// Opens the panel by itself once per session, the first time the orchestrator delegates.
 async function autoOpen($: EngineInterface): Promise<void> {
   if (await read($, isAutoOpened)) return
   await update($, isAutoOpened, () => true)
   void openPane($)
 }
 
-// The desktop app tells the lead of a worker's turn as `… (local_…) finished a turn. It
-// reported (…): "<the first 400 characters of its recap>" … Read it with …`, and of each
-// linked session's state as `name = local_… (idle)`.
+// The desktop app tells the orchestrator of a worker's turn on a line of its own,
+// `The session "<title>" you started (local_…) finished a turn. It reported (…): "<recap>" …`,
+// and of the linked sessions' states on one line, `Linked sessions now (…): name = local_… (idle), …`.
+// Only those line starts are the app's: a recap is quoted with its line breaks shown as ⏎,
+// so a worker cannot start a line and speak for another session.
+const TURN_LINE = /^The session "[^"\n]*" you started \((local_[\w-]+)\) finished a turn\.([^\n]*)$/gm
+const LINKED_LINE = /^Linked sessions now[^\n]*$/m
+
 async function hearFrom($: EngineInterface, text: string): Promise<void> {
-  const list = await read($, sessions)
-  if (!list.some(s => s.sessionId && text.includes(s.sessionId))) return
+  const turns = new Map([...text.matchAll(TURN_LINE)].map(m => [m[1] ?? '', m[2] ?? '']))
+  const linked = text.match(LINKED_LINE)?.[0] ?? ''
+  const working = new Set([...linked.matchAll(/(local_[\w-]+) \(working\)/g)].map(m => m[1]))
+  if (turns.size === 0 && working.size === 0) return
   const at = await $.clock.now()
   await update($, sessions, all =>
     all.map((s): WorkerSession => {
-      if (!s.sessionId || !text.includes(s.sessionId)) return s
-      const turn = text.indexOf(`(${s.sessionId}) finished a turn`)
-      if (turn < 0) {
-        // Messaged again by the lead or the user: back at work.
-        const isWorking = text.includes(`${s.sessionId} (working)`)
-        return isWorking && s.reportedAt ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined } : s
+      if (!s.sessionId) return s
+      const recap = turns.get(s.sessionId)
+      if (recap === undefined) {
+        // Messaged again by the orchestrator or the user: back at work.
+        return working.has(s.sessionId) && s.reportedAt ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined } : s
       }
-      const recap = text.slice(turn).match(/It reported[\s\S]*?(?:Read it with|$)/)?.[0] ?? ''
-      const progress = recap.match(/Progress:\s*(\d+)\s*\/\s*(\d+)\s*(?:[—–-]\s*([^\n⏎.]*))?/i)
-      const needs = recap.match(/Needs input:\s*([^\n⏎"]*)/i)?.[1]?.trim()
+      const progress = recap.match(/Progress:\s*(\d+)\s*\/\s*(\d+)\s*(?:[—–-]\s*([^⏎."]*))?/i)
+      const needs = recap.match(/Needs input:\s*([^⏎"]*)/i)?.[1]?.trim()
       return {
         ...s,
         reportedAt: at,
@@ -142,7 +148,7 @@ export const register: Register = on => {
     const started = await next(e)
     await $.command.register({
       name: 'orchestration',
-      description: "Show or hide the orchestration panel: the lead's context, its subagents and worker sessions",
+      description: "Show or hide the orchestration panel: the orchestrator's context, its subagents and worker sessions",
     })
     await $.tool.register({
       name: 'step',
@@ -229,7 +235,7 @@ export const register: Register = on => {
     return next(e)
   })
 
-  // Each model request: a subagent's live context and tokens, or a redraw for the lead's.
+  // Each model request: a subagent's live context and tokens, or a redraw for the orchestrator's.
   on('turn.step', async function* ($, e, next) {
     const result = yield* next(e)
     const agentId = e.agentId
@@ -311,7 +317,7 @@ export const register: Register = on => {
     return ran
   })
 
-  // The lead writing to a worker sets it going again.
+  // The orchestrator writing to a worker sets it going again.
   on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
     const to = String((e as unknown as { to?: unknown }).to ?? '')
     const at = await $.clock.now()
@@ -413,7 +419,7 @@ export const register: Register = on => {
     const workers = await read($, sessions)
     const percent = fillOf(usage) ?? 0
     const window = usage.context.window
-    const leadModel = await $.session.model()
+    const orchestratorModel = await $.session.model()
     const running = list.filter(a => a.status === 'running').reverse()
     const finished = list.filter(a => a.status !== 'running').reverse()
     const agentTokens = list.reduce((sum, a) => sum + a.tokens, 0)
@@ -450,8 +456,8 @@ export const register: Register = on => {
     )
 
     const agentCard = (a: AgentRun) => {
-      // A subagent on the lead's model has the lead's window; for any other only the count is sure.
-      const fill = a.model === leadModel && window ? ` (${Math.round((a.contextTokens / window) * 100)}%)` : ''
+      // A subagent on the orchestrator's model has the orchestrator's window; for any other only the count is sure.
+      const fill = a.model === orchestratorModel && window ? ` (${Math.round((a.contextTokens / window) * 100)}%)` : ''
       const time = fmtTime((a.endedAt ?? at) - a.startedAt)
       const mark = a.status === 'running' ? spin : a.status === 'done' ? '✅' : '💥'
       return card(
@@ -482,7 +488,7 @@ export const register: Register = on => {
 
     const sessionCard = (s: WorkerSession) => {
       const state = stateOf(s, at, spin)
-      const look = `Check on worker session "${s.title}" (${s.sessionId}): ${state.reason}. Look at its latest report and state, then unblock it or tell me what it needs.`
+      const look = `Check on worker session ${s.sessionId}: ${state.reason}. Read its latest report with get_session, then unblock it or tell me what it needs.`
       return card(
         s.id,
         state.reason !== undefined,
@@ -507,10 +513,10 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column" gap={1}>
         {card(
-          'lead',
+          'orchestrator',
           percent >= 70,
           <>
-            {heading('🧠 Lead', `● ${shortModel(leadModel)}`)}
+            {heading('🧠 Orchestrator', `● ${shortModel(orchestratorModel)}`)}
             <Box flexDirection="row" gap={1}>
               {bar(percent / 100, width)}
               <Text bold color={ORANGE}>
