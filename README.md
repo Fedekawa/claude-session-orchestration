@@ -2,7 +2,7 @@
 
 Skills and agents for running **an orchestrator Claude Code session (also called a lead or main session) with worker sessions**: how to split work, brief workers, keep them isolated, review what comes back, integrate it, and keep the docs honest while you do.
 
-It is plain Markdown. No runtime, no dependencies, and nothing specific to one language, framework or host.
+The skills and agents are plain Markdown: no runtime, no dependencies, and nothing specific to one language, framework or host. An optional mod adds a live view of the orchestration (see below).
 
 ## Install
 
