@@ -1,6 +1,6 @@
 # session-orchestration
 
-Skills and agents for running **a lead (orchestrator) Claude Code session with worker sessions**: how to split work, brief workers, keep them isolated, review what comes back, integrate it, and keep the docs honest while you do.
+Skills and agents for running **an orchestrator Claude Code session (also called a lead or main session) with worker sessions**: how to split work, brief workers, keep them isolated, review what comes back, integrate it, and keep the docs honest while you do.
 
 It is plain Markdown. No runtime, no dependencies, and nothing specific to one language, framework or host.
 
@@ -22,30 +22,55 @@ claude --plugin-dir ./claude-session-orchestration
 
 ## The model in sixty seconds
 
-```text
-            user
-              |
-            LEAD  -- owns goal, decisions, integration, the user conversation
-           /  |  \
-      brief brief brief       one self-contained brief per worker
-        |     |     |
-     worker worker worker     each on its own branch / worktree
-        |     |     |
-   self-review + docs sync    before reporting
-        |     |     |
-      report report report    a claim, not proof
-           \  |  /
-            LEAD  -- verifies (diff, re-run checks), integrates,
-              |       runs the full checks and one docs pass
-              v
-   summary + recommendation --> the user decides merge / push
+```mermaid
+---
+config:
+  flowchart:
+    wrappingWidth: 260
+---
+flowchart TD
+    user(["You give the goal"])
+
+    subgraph P1 ["① ORCHESTRATOR PLANS"]
+        plan["Split only if parts are<br/>independent, in separate<br/>files, and checkable.<br/>Write one brief per worker."]
+    end
+
+    subgraph P2 ["② WORKERS BUILD"]
+        wa["Worker<br/>own branch"]
+        wb["Worker<br/>own branch"]
+        wc["Worker<br/>own branch"]
+        report["Each worker self-reviews,<br/>then sends a report<br/>(a claim, not proof)"]
+        wa & wb & wc --> report
+    end
+
+    subgraph P3 ["③ ORCHESTRATOR VERIFIES"]
+        review["Check the diff,<br/>re-run the checks.<br/>Problems? Send findings<br/>back to the same worker."]
+        integrate["Merge into integrate/goal.<br/>Full checks, one docs pass."]
+        review -- "accept" --> integrate
+    end
+
+    done(["Summary +<br/>recommendation<br/>You decide:<br/>merge, push or PR"])
+
+    user --> P1 --> P2 --> P3 --> done
+
+    classDef you fill:#f1f5f9,stroke:#475569,color:#0f172a
+    classDef orch fill:#dbeafe,stroke:#1d4ed8,color:#0f172a
+    classDef worker fill:#dcfce7,stroke:#15803d,color:#0f172a
+    class user,done you
+    class plan,review,integrate orch
+    class wa,wb,wc,report worker
+    style P1 fill:none,stroke:#94a3b8,stroke-dasharray:5 4
+    style P2 fill:none,stroke:#94a3b8,stroke-dasharray:5 4
+    style P3 fill:none,stroke:#94a3b8,stroke-dasharray:5 4
 ```
+
+Skills by phase: ① `orchestrating-sessions`, `writing-session-briefs` · ② `working-as-a-session`, `self-review-before-handoff`, `syncing-docs-with-code` · ③ `reviewing-session-work`, `orchestrating-sessions`, `syncing-docs-with-code`.
 
 Three rules carry most of the value:
 
 1. **Split only what is truly independent.** Disjoint files, no shared output, a checkable "done when". Everything else stays in one session.
 2. **A brief is the whole world.** A worker knows only what its brief says, so hand over understanding, not just a task.
-3. **A report is a claim.** The lead verifies against the diff before anything is called done.
+3. **A report is a claim.** The orchestrator verifies against the diff before anything is called done.
 
 ## What is inside
 
@@ -53,7 +78,7 @@ Three rules carry most of the value:
 
 | Skill | Use it when |
 |---|---|
-| `orchestrating-sessions` | You are the lead. Decide here / subagent / own session, split, dispatch, isolate, integrate, close out. |
+| `orchestrating-sessions` | You are the orchestrator. Decide here / subagent / own session, split, dispatch, isolate, integrate, close out. |
 | `writing-session-briefs` | You are about to hand a task to another session or subagent. Template and checklist. |
 | `working-as-a-session` | You are the worker. Scope, branch discipline, escalation, and the report format. |
 | `self-review-before-handoff` | You are about to say "done". Review your own diff, run the checks, sync docs, write an honest report. |
@@ -110,10 +135,10 @@ Headless workers have nobody to answer permission prompts. Pre-approve only what
 
 ## Principles behind the defaults
 
-- **One writer per file, one owner per shared file.** Lockfiles, index exports, route tables, migrations, schemas, `CLAUDE.md`, top-level README and CHANGELOG all have exactly one owner, usually the lead at integration.
-- **Contracts first.** When parts share an interface, the lead commits it before dispatching, and workers receive it read-only.
+- **One writer per file, one owner per shared file.** Lockfiles, index exports, route tables, migrations, schemas, `CLAUDE.md`, top-level README and CHANGELOG all have exactly one owner, usually the orchestrator at integration.
+- **Contracts first.** When parts share an interface, the orchestrator commits it before dispatching, and workers receive it read-only.
 - **Safe by default.** Workers do not push, open PRs, deploy, migrate or touch production unless the brief says so and a human approved it.
-- **Docs are part of the change.** Code, then docs, then self-review, then lead review. Code wins over docs that describe behaviour; specs and ADRs are never silently overruled.
+- **Docs are part of the change.** Code, then docs, then self-review, then orchestrator review. Code wins over docs that describe behaviour; specs and ADRs are never silently overruled.
 - **Escalate early.** A fast, well-described blocker beats three more attempts at the same wall.
 - **Honest reports.** "Verified" means run and observed. Failing checks are reported as failing.
 

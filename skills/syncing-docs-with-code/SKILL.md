@@ -1,28 +1,28 @@
 ---
 name: syncing-docs-with-code
-description: Keep documentation in step with code changes. Find the docs that describe changed behaviour, update or flag them, and check doc claims against the code. Use after changing behaviour, APIs, config, CLI flags, environment variables, schemas or architecture, before self-review or lead review, and when asked to audit docs drift.
+description: Keep documentation in step with code changes. Find the docs that describe changed behaviour, update or flag them, and check doc claims against the code. Use after changing behaviour, APIs, config, CLI flags, environment variables, schemas or architecture, before self-review or orchestrator review, and when asked to audit docs drift.
 ---
 
 # Syncing Docs with Code
 
 Docs are part of the change. Stale docs are bugs with a long fuse: they send the next person, or the next agent, in the wrong direction with full confidence. A change is not done until the docs that describe it are right, or the drift is explicitly reported.
 
-Order of work: **code, then docs, then self-review, then lead review.** Docs written before the code settles describe the plan, not the product.
+Order of work: **code, then docs, then self-review, then orchestrator review.** Docs written before the code settles describe the plan, not the product.
 
 ## Which side is the truth?
 
 | The doc is... | If doc and code disagree |
 |---|---|
 | A description of current behaviour (README, guides, how-tos, run instructions, comments, agent instruction files such as `CLAUDE.md`) | **Code wins.** Fix the doc. |
-| A contract the code should implement (spec, API schema, ADR, requirements) | There is a bug on one side. **Do not silently pick one.** Flag both sides to the lead or user. If this change deliberately alters the contract, update the contract on purpose and say so. |
+| A contract the code should implement (spec, API schema, ADR, requirements) | There is a bug on one side. **Do not silently pick one.** Flag both sides to the orchestrator or user. If this change deliberately alters the contract, update the contract on purpose and say so. |
 | A record of a past decision (ADR) | Never rewrite history. Add a new record that supersedes it. |
 
 ## Who edits what
 
 - **Working alone:** edit any doc the change affects.
-- **As a worker in a multi-session effort:** edit only docs inside files you own (including comments and docstrings) and docs your brief lists. Every other doc is shared surface, so report it under "Needs from the lead". Shared files are the choke points listed in `orchestrating-sessions` (README, CHANGELOG, `CLAUDE.md`, `AGENTS.md`, `.env.example`, schemas and API specs among them).
-- **As the lead reviewing a worker:** check only. Do not edit the worker's branch; send drift back as a numbered finding.
-- **As the lead integrating:** run one final pass on the combined change and update the shared docs once. Two correct per-branch edits can contradict each other.
+- **As a worker in a multi-session effort:** edit only docs inside files you own (including comments and docstrings) and docs your brief lists. Every other doc is shared surface, so report it under "Needs from the orchestrator". Shared files are the choke points listed in `orchestrating-sessions` (README, CHANGELOG, `CLAUDE.md`, `AGENTS.md`, `.env.example`, schemas and API specs among them).
+- **As the orchestrator reviewing a worker:** check only. Do not edit the worker's branch; send drift back as a numbered finding.
+- **As the orchestrator integrating:** run one final pass on the combined change and update the shared docs once. Two correct per-branch edits can contradict each other.
 
 ## Procedure
 
