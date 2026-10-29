@@ -15,7 +15,15 @@ export type AgentRun = {
   /** Every token of every request, summed. */
   tokens: number
   steps: number
+  /** The latest tool the agent called, with a short hint (`Edit register.tsx`). */
+  activity?: string
+  /** Self-reported by the agent through the `step` tool. */
+  stepDone?: number
+  stepTotal?: number
+  stepNote?: string
 }
+
+export type SessionProgress = { done: number; total: number; note: string }
 
 export type WorkerSession = {
   id: string
@@ -23,7 +31,12 @@ export type WorkerSession = {
   /** The host's id for it (`local_…`), when its start result named one. */
   sessionId?: string
   startedAt: number
+  /** When its latest end-of-turn note arrived; cleared when the lead messages it again. */
   reportedAt?: number
+  /** From the `Progress: n/m — note` line its brief asks it to lead each recap with. */
+  progress?: SessionProgress
+  /** From a `Needs input: …` line: what it is waiting on. */
+  needsInput?: string
 }
 
 declare module 'claude-code' {
