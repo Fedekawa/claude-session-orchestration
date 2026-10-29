@@ -2,7 +2,7 @@
 
 Skills and agents for running **an orchestrator Claude Code session (also called a lead or main session) with worker sessions**: how to split work, brief workers, keep them isolated, review what comes back, integrate it, and keep the docs honest while you do.
 
-It is plain Markdown. No runtime, no dependencies, and nothing specific to one language, framework or host.
+The skills and agents are plain Markdown: no runtime, no dependencies, and nothing specific to one language, framework or host. An optional mod adds a live view of the orchestration (see below).
 
 ## Install
 
@@ -94,6 +94,14 @@ Three rules carry most of the value:
 | `docs-drift-auditor` | Finds docs that no longer match the code, with proposed fixes. | read + safe commands |
 
 The agents never edit files. Models are set in each agent's frontmatter (`opus` for the planner and reviewer, `sonnet` for the auditor); change them to taste, or use `inherit` to follow your session's model.
+
+### Optional mod: orchestration-monitor
+
+A separate plugin in this marketplace, for watching an orchestration live: the orchestrator's cache timing, session age and usage limits above the prompt, and an `/orchestration` panel with each subagent's and worker session's progress, and a button to ask the orchestrator to look at a stalled one. Unlike the skills it ships code (a TypeScript hooks module). See [its README](plugins/orchestration-monitor/README.md).
+
+```text
+/plugin install orchestration-monitor@session-orchestration
+```
 
 ### Installed names
 

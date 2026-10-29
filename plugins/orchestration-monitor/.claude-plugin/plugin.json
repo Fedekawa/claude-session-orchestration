@@ -1,0 +1,13 @@
+{
+  "name": "orchestration-monitor",
+  "version": "0.1.0",
+  "description": "A cache band above the prompt and an /orchestration panel: the orchestrator's context, cache and usage limits, its subagents, and the worker sessions it started.",
+  "author": {
+    "name": "Fedekawa",
+    "url": "https://github.com/Fedekawa"
+  },
+  "types": "./types/index.d.ts",
+  "homepage": "https://github.com/Fedekawa/claude-session-orchestration/tree/main/plugins/orchestration-monitor",
+  "repository": "https://github.com/Fedekawa/claude-session-orchestration",
+  "license": "MIT"
+}
