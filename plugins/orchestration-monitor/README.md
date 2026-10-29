@@ -11,7 +11,7 @@ A Claude Code mod that shows what an orchestrator session is doing and how much 
   - A button that names what is in flight (`🤖 2 working · 🛰️ 1 active · 🙋 1 to check`) and opens the panel.
 - **Orchestration panel** (`/orchestration` toggles it), one card per item. It opens by itself the first time the orchestrator delegates.
   - **Orchestrator**: context meter, model, cache hit rate, session age, usage limits. From 70% it suggests delegating or `/compact`.
-  - **Subagents**: how far each one is (`██░░ 2/4 tokenizer done`), what it is doing right now (`now Edit parser.ts`), model, context, tokens and how long it has run (🕐).
+  - **Subagents**: only the running ones, and any that failed; a finished one leaves the panel and is counted in the heading. Each card shows how far it is (`██░░ 2/4 tokenizer done`), what it is doing right now (`now Edit parser.ts`), model, context, tokens and how long it has run (🕐).
   - **Worker sessions**: how far each one is, and whether it is working, done, paused without being done, waiting for an answer, or quiet for 10 minutes. The last three get a **👀 Ask the orchestrator to look** button, which sends the orchestrator a message to check on that session and unblock it.
 
 ## How progress is reported

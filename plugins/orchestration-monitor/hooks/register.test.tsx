@@ -61,7 +61,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(drawn).not.toContain('$')
   })
 
-  test(`${surface}: a subagent's run shows in the panel and opens it once`, async ($, on) => {
+  test(`${surface}: a subagent shows in the panel while it runs, and leaves it when done`, async ($, on) => {
     const opened: string[] = []
     orchestrator(on, opened)
     await subagent($, on)
@@ -73,8 +73,10 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
     await ($.turn.complete as (e: unknown) => Promise<unknown>)({ agentId: 'a1', reason: 'answer', answer: 'ok' })
     const done = await texts($, { plugin: PLUGIN, surface, component: 'Pane', requestId: 'orchestration', props: pane })
-    expect(done).toContain('✅')
+    // Finished, it leaves the panel and is counted in the heading.
+    expect(done).not.toContain('Write the parser')
     expect(done).toContain('0 working · 1 done')
+    expect(done).toContain('All done ✅')
     expect(done).not.toContain('$')
     expect(opened).toEqual(['orchestration'])
   })
@@ -211,4 +213,13 @@ test("the band and the orchestrator's card show the cache hit rate and the sessi
   const paneText = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
   expect(paneText).toContain('90% of input read from cache')
   expect(paneText).toContain('Session running for')
+})
+
+test('a failed subagent stays in the panel', async ($, on) => {
+  orchestrator(on)
+  await subagent($, on)
+  await ($.turn.complete as (e: unknown) => Promise<unknown>)({ agentId: 'a1', reason: 'error', answer: '' })
+  const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
+  expect(drawn).toContain('💥')
+  expect(drawn).toContain('Write the parser')
 })

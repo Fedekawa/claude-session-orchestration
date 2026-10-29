@@ -436,7 +436,9 @@ export const register: Register = on => {
     const window = usage.context.window
     const orchestratorModel = await $.session.model()
     const running = list.filter(a => a.status === 'running').reverse()
-    const finished = list.filter(a => a.status !== 'running').reverse()
+    // A finished subagent leaves the panel, counted in the heading; a failed one stays to be looked at.
+    const done = list.filter(a => a.status === 'done').length
+    const failed = list.filter(a => a.status === 'failed').reverse()
     const agentTokens = list.reduce((sum, a) => sum + a.tokens, 0)
     // A card's border and padding take 4 columns, the count beside a meter about 8.
     const width = Math.max(10, Math.min(40, e.props.bodyColumns - 18))
@@ -554,11 +556,12 @@ export const register: Register = on => {
         <Box flexDirection="column">
           {heading(
             '🤖 Subagents',
-            `${running.length} working · ${finished.length} done${agentTokens ? ` · ${fmtTokens(agentTokens)} tokens` : ''}`,
+            `${running.length} working · ${done} done${agentTokens ? ` · ${fmtTokens(agentTokens)} tokens` : ''}`,
           )}
           {list.length === 0 && <Text dimColor>None yet. 💤</Text>}
+          {list.length > 0 && running.length === 0 && failed.length === 0 && <Text dimColor>All done ✅</Text>}
           {running.map(agentCard)}
-          {finished.map(agentCard)}
+          {failed.map(agentCard)}
         </Box>
 
         <Box flexDirection="column">
