@@ -23,6 +23,11 @@ claude --plugin-dir ./claude-session-orchestration
 ## The model in sixty seconds
 
 ```mermaid
+---
+config:
+  flowchart:
+    wrappingWidth: 260
+---
 flowchart TD
     user(["You give the goal"])
 
@@ -31,9 +36,9 @@ flowchart TD
     end
 
     subgraph P2 ["② WORKERS BUILD"]
-        wa["Worker A<br/>own branch"]
-        wb["Worker B<br/>own branch"]
-        wc["Worker C<br/>own branch"]
+        wa["Worker<br/>own branch"]
+        wb["Worker<br/>own branch"]
+        wc["Worker<br/>own branch"]
         report["Each worker self-reviews,<br/>then sends a report<br/>(a claim, not proof)"]
         wa & wb & wc --> report
     end
