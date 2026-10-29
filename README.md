@@ -99,6 +99,8 @@ The agents never edit files. Models are set in each agent's frontmatter (`opus` 
 
 A separate plugin in this marketplace, for watching an orchestration live: the orchestrator's cache timing, session age and usage limits above the prompt, and an `/orchestration` panel with each subagent's and worker session's progress, and a button to ask the orchestrator to look at a stalled one. Unlike the skills it ships code (a TypeScript hooks module). See [its README](plugins/orchestration-monitor/README.md).
 
+![orchestration-monitor in the Claude desktop app: the cache band above the prompt and the orchestration panel](plugins/orchestration-monitor/assets/screenshot.webp)
+
 ```text
 /plugin install orchestration-monitor@session-orchestration
 ```
