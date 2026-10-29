@@ -44,7 +44,11 @@ Write the work-unit table before spawning anything:
 |---|---|---|---|---|---|
 
 - One brief per unit. Use `writing-session-briefs`. A worker knows only what its brief says.
-- Pick the model per unit: searches, lookups and mechanical edits go to a small fast model; well-specified implementation to a mid-tier model; architecture, hard debugging and review to the strongest.
+- Pick the model per unit, and always pass it: a worker given none runs on your own model, usually the most expensive one.
+  - **Default: Sonnet as the worker, Opus as its advisor.** Sonnet does the work and consults Opus at the hard calls, which costs far less than running Opus throughout. Pass `model: "sonnet"` to the Agent tool, a Sonnet model id to a host's session tool, or `--model sonnet --advisor opus` to `claude -p`.
+  - Pure lookups and mechanical edits may go to Haiku.
+  - Opus as the main model only where the whole unit is hard reasoning: the `session-planner` and `work-reviewer` agents already run on it.
+  - The advisor comes from `advisorModel` in settings (`/advisor opus` saves it in the user's): subagents inherit it, and a session the host starts reads it from settings. It must be at least as capable as the worker's model, and it is experimental and needs the Anthropic API; where it cannot attach, the worker still runs, without it. Write the model in the unit table as `sonnet + opus advisor`.
 - Fork or fresh? A fork inherits this whole conversation: use it when the task leans on the conversation and the conversation is short. Use a fresh session with a full brief when the task is self-contained or the conversation is long.
 - Launch independent subagents in one message (several tool calls at once) so they start together.
 - Cap concurrency at what you can actually review, roughly three or four. Beyond that, review becomes the bottleneck and quality drops.
@@ -75,6 +79,7 @@ A headless worker has nobody to answer permission prompts, so pre-approve what i
 
 ```bash
 cd ../<repo>-<unit> && claude -p "$(cat /abs/path/brief.md)" \
+  --model sonnet --advisor opus \
   --permission-mode acceptEdits \
   --allowedTools "Bash(npm test:*)" "Bash(npm run typecheck:*)" \
   --max-budget-usd 5 --output-format json < /dev/null > /abs/path/report.json

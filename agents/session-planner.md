@@ -38,7 +38,7 @@ Parallelism is a cost, not a goal. Every extra worker adds a brief to write, a r
 ## Work units
 | # | Goal | Writes | Reads | Depends on | Runner | Model |
 |---|------|--------|-------|------------|--------|-------|
-Runner is one of: here, subagent, own session. Model is small/fast, mid-tier or strongest, with a few words on why.
+Runner is one of: here, subagent, own session. Model is `sonnet + opus advisor` by default, `haiku` for pure lookups and mechanical edits, or `opus` only where the whole unit is hard reasoning, with a few words on why.
 
 ## Conflict map
 <files or areas written by more than one unit, and how each is resolved>
