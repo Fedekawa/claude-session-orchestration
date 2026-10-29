@@ -1,0 +1,21 @@
+{
+  "name": "session-orchestration",
+  "version": "0.1.0",
+  "description": "Skills and agents for running a lead (orchestrator) Claude Code session with worker sessions: briefs, isolation, review, integration, plus a docs-vs-code sync and a self-review gate before handoff.",
+  "author": {
+    "name": "Fedekawa",
+    "url": "https://github.com/Fedekawa"
+  },
+  "homepage": "https://github.com/Fedekawa/claude-session-orchestration",
+  "repository": "https://github.com/Fedekawa/claude-session-orchestration",
+  "license": "MIT",
+  "keywords": [
+    "orchestrator",
+    "multi-session",
+    "subagents",
+    "worktrees",
+    "code-review",
+    "documentation",
+    "workflow"
+  ]
+}

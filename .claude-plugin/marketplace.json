@@ -1,0 +1,31 @@
+{
+  "name": "session-orchestration",
+  "owner": {
+    "name": "Fedekawa",
+    "url": "https://github.com/Fedekawa"
+  },
+  "metadata": {
+    "description": "Best practices for lead/worker Claude Code sessions, packaged as skills and agents.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "session-orchestration",
+      "source": "./",
+      "description": "Skills and agents for running a lead (orchestrator) session with worker sessions: briefs, isolation, review, integration, plus a docs-vs-code sync and a self-review gate before handoff.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Fedekawa"
+      },
+      "category": "workflow",
+      "keywords": [
+        "orchestrator",
+        "multi-session",
+        "subagents",
+        "worktrees",
+        "code-review",
+        "documentation"
+      ]
+    }
+  ]
+}
