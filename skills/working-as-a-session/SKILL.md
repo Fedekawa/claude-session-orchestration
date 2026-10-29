@@ -1,11 +1,11 @@
 ---
 name: working-as-a-session
-description: How to behave as a worker session started by a lead or orchestrator. Read the brief, stay in scope, work on your own branch, escalate instead of guessing, and finish with an honest report. Use when you were started with a brief, when a lead session is coordinating you, or when asked to work as one part of a multi-session effort.
+description: How to behave as a worker session started by an orchestrator session. Read the brief, stay in scope, work on your own branch, escalate instead of guessing, and finish with an honest report. Use when you were started with a brief, when an orchestrator (lead or master) session is coordinating you, or when asked to work as one part of a multi-session effort.
 ---
 
 # Working as a Session
 
-A lead started you to do one bounded task. It is coordinating other work you cannot see, so the contract matters more than cleverness: do what the brief says, nothing adjacent, and report truthfully.
+An orchestrator started you to do one bounded task. It is coordinating other work you cannot see, so the contract matters more than cleverness: do what the brief says, nothing adjacent, and report truthfully.
 
 ## Start
 
@@ -14,15 +14,15 @@ A lead started you to do one bounded task. It is coordinating other work you can
    ```bash
    git status --short && git branch --show-current && pwd
    ```
-   A worker that writes code should be on its own branch in its own worktree. The brief gives the path: use absolute paths or `git -C <path>`, and never run `checkout` or `switch` in a checkout someone else uses. If you are on the default branch, or the tree has changes that are not yours, stop and tell the lead. Read-only workers skip the branch check.
+   A worker that writes code should be on its own branch in its own worktree. The brief gives the path: use absolute paths or `git -C <path>`, and never run `checkout` or `switch` in a checkout someone else uses. If you are on the default branch, or the tree has changes that are not yours, stop and tell the orchestrator. Read-only workers skip the branch check.
 3. If the brief is ambiguous in a way that changes the outcome, ask once: one specific question, with the default you will take if no answer comes. If you cannot get an answer mid-run (you are a subagent or a headless run), take the default, record it under "Decisions I made" and continue. Stop only if either answer would make the work wrong. If the ambiguity is minor, pick the sensible default and note it.
 4. If the brief contradicts the code (a named file does not exist, the premise is false), stop and report. Do not improvise a different task.
 
 ## Stay in scope
 
-- Edit only files you own: those in the brief's **Files** section. If the brief has no Files section, you own the files you create and the ones the Goal names; anything else needs the lead's word, or a line in your report.
-- Shared files are not yours: lockfiles, index or barrel files, route and registry tables, migrations, generated files, schema files and API specs, `.env.example`, `CLAUDE.md` and `AGENTS.md`, top-level README and CHANGELOG. If you need a change there, list it under "Needs from the lead".
-- Docs follow the same rule: update docs inside files you own (including comments and docstrings) and docs your brief lists. Everything else goes under "Needs from the lead".
+- Edit only files you own: those in the brief's **Files** section. If the brief has no Files section, you own the files you create and the ones the Goal names; anything else needs the orchestrator's word, or a line in your report.
+- Shared files are not yours: lockfiles, index or barrel files, route and registry tables, migrations, generated files, schema files and API specs, `.env.example`, `CLAUDE.md` and `AGENTS.md`, top-level README and CHANGELOG. If you need a change there, list it under "Needs from the orchestrator".
+- Docs follow the same rule: update docs inside files you own (including comments and docstrings) and docs your brief lists. Everything else goes under "Needs from the orchestrator".
 - Problems you notice outside scope go under "Found but didn't fix". No drive-by refactors, no renames "while I'm here", no new dependencies.
 - Other sessions are working in parallel. Never reset, rebase onto, clean or delete anything you did not create.
 
@@ -56,7 +56,7 @@ Unless the brief names another format, finish with this:
 
 **Not done / skipped:** <what and why>
 **Docs:** updated <files> | checked, no change needed <files> | drift found, not fixed <where>
-**Needs from the lead:** <shared-file edits, decisions, approvals>
+**Needs from the orchestrator:** <shared-file edits, decisions, approvals>
 **Found but didn't fix:** <out-of-scope issues>
 **Decisions I made:** <ambiguities and the default you chose>
 **Risks:** <what could still be wrong>
