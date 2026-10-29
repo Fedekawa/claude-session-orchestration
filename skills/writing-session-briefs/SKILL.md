@@ -51,6 +51,12 @@ Runtime state: use port <n> / database or schema <name> so parallel workers do n
 - No new dependencies without asking.
 - <project-specific limits>
 
+## Code standard
+The most elegant code is the simplest that solves the problem. Nothing speculative:
+no abstraction, option or layer this brief did not ask for.
+Surgical changes: every changed line traces back to this brief; match the existing style.
+State the assumptions you made. If a simpler approach exists, say so.
+
 ## Docs
 Docs that must follow your change (see `syncing-docs-with-code`).
 Shared top-level docs: report what needs changing, do not edit.
@@ -67,7 +73,7 @@ you find a problem outside scope (report it, do not fix it).
 Stop and report partial results at <time / turns / cost limit>.
 ```
 
-Drop sections that do not apply to a small task, but never drop **Goal**, **Done when**, **Files**, **Hard limits** or **Report back**. Without **Files** the worker has no defined ownership.
+Drop sections that do not apply to a small task, but never drop **Goal**, **Done when**, **Files**, **Hard limits** or **Report back**. Without **Files** the worker has no defined ownership. **Code standard** can be dropped: `working-as-a-session` applies it by default.
 
 ## What a good brief passes
 

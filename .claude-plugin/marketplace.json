@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Best practices for orchestrator/worker Claude Code sessions, packaged as skills and agents.",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "session-orchestration",
       "source": "./",
       "description": "Skills and agents for running an orchestrator session with worker sessions: briefs, isolation, review, integration, plus a docs-vs-code sync and a self-review gate before handoff.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Fedekawa"
       },

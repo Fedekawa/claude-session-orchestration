@@ -27,7 +27,7 @@ The order matters and follows the rule **code, then docs, then self-review**: do
 6. **Checklist**
    - **Scope:** only owned files? Nothing adjacent "while I was there"?
    - **Correctness:** empty, null and boundary inputs; error paths; ordering and concurrency; off-by-one.
-   - **Simplicity:** could this be smaller? Any abstraction, option or layer nobody asked for?
+   - **Simplicity:** could this be smaller? Any abstraction, option or layer nobody asked for? Would a senior engineer call it overcomplicated? If yes, simplify now.
    - **Hygiene:** debug output, commented-out code, `TODO`s, secrets, stray files, formatting-only churn.
    - **Tests:** new behaviour is tested; the new tests fail without your change; none are skipped, deleted or loosened.
    - **Safety:** nothing touches production data, auth, migrations or destructive paths unless the brief allowed it.
