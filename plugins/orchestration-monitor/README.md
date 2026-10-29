@@ -4,11 +4,11 @@ A Claude Code mod that shows what an orchestrator session is doing and how much 
 
 "Context" is the lead's context window: how much of what the model can hold at once is already used. When it fills up, Claude Code compacts the conversation and detail is lost, so an orchestrator wants to see it coming.
 
-- **Context band**, above the prompt: a coloured meter of the lead's context (green, amber from 70%, red from 85%) with a mood (😎 🙂 😬 🥵), tokens used out of the window, and your usage limits (5-hour and 7-day). A button names what is in flight (`🤖 2 working · 🛰️ 1 waiting`) and opens the panel.
+- **Context band**, above the prompt: an orange meter of the lead's context with a mood (😎 🙂 😬 🥵), tokens used out of the window, and your usage limits (5-hour and 7-day). A button names what is in flight (`🤖 2 working · 🛰️ 1 waiting`) and opens the panel.
 - **Orchestration panel** (`/orchestration` toggles it). It opens by itself the first time the lead delegates.
   - **Lead**: context meter, model, usage limits. From 70% it suggests delegating or `/compact`.
-  - **What fills the context**: the biggest parts (messages, tools, memory files…) as coloured bars, as `/context` estimates them.
-  - **Subagents**: running (with a spinner) and finished, with model (a colour per model family), effort, type, context, total tokens and time. Context shows as a percentage when the subagent runs on the lead's model, so its window is known.
+  - **What fills the context**: the biggest parts (messages, tools, memory files…) as bars, as `/context` estimates them.
+  - **Subagents**: running (with a spinner) and finished, with model, effort, type, context, total tokens and time. Context shows as a percentage when the subagent runs on the lead's model, so its window is known.
   - **Worker sessions**: sessions the lead started, with when each started and whether its report has come back.
 
 ## Limits

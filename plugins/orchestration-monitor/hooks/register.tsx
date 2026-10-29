@@ -15,18 +15,9 @@ const isAutoOpened = atom({ plugin: 'orchestration-monitor', key: 'isAutoOpened'
 // The desktop app's session tools; other hosts start workers in ways a mod cannot see.
 const SESSION_TOOLS = /^mcp__ccd_session__(start_session|hand_off_to_session)$/
 
-const OK = '#5fbf8f'
-const WARN = '#e0a23a'
-const HOT = '#e5534b'
-const ACCENT = '#8f8cf4'
-const SKY = '#4fb3d9'
-const PINK = '#e07bd8'
-// One colour per row of the context breakdown, in turn.
-const PALETTE = [ACCENT, SKY, OK, WARN, PINK, HOT]
+// Claude's orange, the one colour the mod draws in; everything else is plain or dim.
+const ORANGE = '#d97757'
 const SPINNER = ['◐', '◓', '◑', '◒']
-
-const modelColor = (model: string): string =>
-  /fable/i.test(model) ? '#e8b84a' : /opus/i.test(model) ? '#a78bfa' : /sonnet/i.test(model) ? SKY : /haiku/i.test(model) ? OK : '#9aa0a6'
 
 const mood = (percent: number): string => (percent >= 85 ? '🥵' : percent >= 70 ? '😬' : percent >= 40 ? '🙂' : '😎')
 
@@ -52,8 +43,6 @@ const barText = (ratio: number, width: number): [string, string] => {
 }
 
 const fmtClock = (at: number): string => new Date(at).toTimeString().slice(0, 5)
-
-const heat = (percent: number): string => (percent >= 85 ? HOT : percent >= 70 ? WARN : OK)
 
 const shortModel = (model: string): string => model.replace(/^claude-/, '').replace(/-\d{8}$/, '')
 
@@ -241,11 +230,11 @@ export const register: Register = on => {
     const below = drawn && typeof drawn === 'object' && (drawn as { type?: string }).type !== 'engine' ? drawn : null
 
     const { Box, Text, Button } = $.ui.resolve(e)
-    const bar = (ratio: number, w: number, color: string) => {
+    const bar = (ratio: number, w: number) => {
       const [full, empty] = barText(ratio, w)
       return (
         <Box flexDirection="row">
-          <Text color={color}>{full}</Text>
+          <Text color={ORANGE}>{full}</Text>
           <Text dimColor>{empty}</Text>
         </Box>
       )
@@ -261,15 +250,15 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" gap={1}>
-          <Text bold color={ACCENT}>
+          <Text bold color={ORANGE}>
             🧠 Context
           </Text>
           {percent === undefined ? (
             <Text dimColor>fills in after the next reply</Text>
           ) : (
             <Box flexDirection="row" gap={1}>
-              {bar(percent / 100, width, heat(percent))}
-              <Text bold color={heat(percent)}>
+              {bar(percent / 100, width)}
+              <Text bold color={ORANGE}>
                 {percent}% {mood(percent)}
               </Text>
               <Text dimColor>
@@ -277,7 +266,7 @@ export const register: Register = on => {
               </Text>
             </Box>
           )}
-          {limits && <Text color={SKY}>⏱ {limits}</Text>}
+          {limits && <Text dimColor>⏱ {limits}</Text>}
           <Button
             key="orchestration-open"
             label={running > 0 ? `${SPINNER[Math.floor(at / 1000) % SPINNER.length]} ${crew}` : crew || '🔭 Orchestration'}
@@ -292,11 +281,11 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text } = $.ui.resolve(e)
-    const bar = (ratio: number, w: number, color: string) => {
+    const bar = (ratio: number, w: number) => {
       const [full, empty] = barText(ratio, w)
       return (
         <Box flexDirection="row">
-          <Text color={color}>{full}</Text>
+          <Text color={ORANGE}>{full}</Text>
           <Text dimColor>{empty}</Text>
         </Box>
       )
@@ -327,15 +316,15 @@ export const register: Register = on => {
       return (
         <Box key={a.id} flexDirection="column">
           <Box flexDirection="row" gap={1}>
-            <Text color={a.status === 'running' ? ACCENT : undefined}>{mark}</Text>
-            <Text bold={a.status === 'running'} color={a.status === 'failed' ? HOT : undefined} wrap="truncate-end">
+            <Text color={a.status === 'running' ? ORANGE : undefined}>{mark}</Text>
+            <Text bold={a.status === 'running'} wrap="truncate-end">
               {a.description || a.type}
             </Text>
           </Box>
           <Box flexDirection="row" gap={1}>
             <Text> </Text>
-            <Text color={modelColor(a.model)}>● {shortModel(a.model)}</Text>
-            {a.effort && <Text color={PINK}>{a.effort}</Text>}
+            <Text>● {shortModel(a.model)}</Text>
+            {a.effort && <Text dimColor>{a.effort}</Text>}
             <Text dimColor wrap="truncate-end">
               {a.type} · 🧠 {fmtTokens(a.contextTokens)}
               {fill} · {fmtTokens(a.tokens)} tokens · ⏱ {time}
@@ -349,34 +338,34 @@ export const register: Register = on => {
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1}>
-            <Text bold color={ACCENT}>
+            <Text bold color={ORANGE}>
               🧠 Lead
             </Text>
-            <Text color={modelColor(leadModel)}>● {shortModel(leadModel)}</Text>
+            <Text dimColor>● {shortModel(leadModel)}</Text>
           </Box>
           <Box flexDirection="row" gap={1}>
-            {bar(percent / 100, width, heat(percent))}
-            <Text bold color={heat(percent)}>
+            {bar(percent / 100, width)}
+            <Text bold color={ORANGE}>
               {percent}% {mood(percent)}
             </Text>
           </Box>
           <Text dimColor>
             {fmtTokens(usage.context.tokens ?? 0)} of {fmtTokens(window)} tokens used
           </Text>
-          {limits && <Text color={SKY}>⏱ Usage limits: {limits}</Text>}
+          {limits && <Text dimColor>⏱ Usage limits: {limits}</Text>}
           {percent >= 70 && (
-            <Text color={heat(percent)}>{mood(percent)} Getting full: hand work to a subagent or run /compact.</Text>
+            <Text color={ORANGE}>{mood(percent)} Getting full: hand work to a subagent or run /compact.</Text>
           )}
         </Box>
 
         {used.length > 0 && (
           <Box flexDirection="column">
-            <Text bold color={SKY}>
+            <Text bold color={ORANGE}>
               📦 What fills the context
             </Text>
-            {used.slice(0, 6).map((c, i) => (
+            {used.slice(0, 6).map(c => (
               <Box key={`cat-${c.name}`} flexDirection="row" gap={1}>
-                {bar(c.tokens / biggest, 10, PALETTE[i % PALETTE.length] ?? ACCENT)}
+                {bar(c.tokens / biggest, 10)}
                 <Text>{fmtTokens(c.tokens)}</Text>
                 <Text dimColor wrap="truncate-end">
                   {c.name}
@@ -388,7 +377,7 @@ export const register: Register = on => {
 
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1}>
-            <Text bold color={OK}>
+            <Text bold color={ORANGE}>
               🤖 Subagents
             </Text>
             <Text dimColor>
@@ -403,7 +392,7 @@ export const register: Register = on => {
 
         <Box flexDirection="column">
           <Box flexDirection="row" gap={1}>
-            <Text bold color={PINK}>
+            <Text bold color={ORANGE}>
               🛰️ Worker sessions
             </Text>
             <Text dimColor>{workers.length}</Text>
