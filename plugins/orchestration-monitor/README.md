@@ -1,6 +1,6 @@
 # orchestration-monitor
 
-A Claude Code mod that shows what an orchestrator session is doing, how much room it has left and whether its cache is still warm. It goes with the `session-orchestration` skills and works on its own.
+A Claude Code mod that shows what an orchestrator session is doing, how much room it has left and whether its cache is still warm. It goes with the `orchestrator-workers` skills and works on its own.
 
 ![The cache band above the prompt and the orchestration panel on the right, in the Claude desktop app](assets/screenshot.webp)
 

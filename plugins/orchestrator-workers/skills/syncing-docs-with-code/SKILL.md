@@ -48,4 +48,4 @@ Order of work: **code, then docs, then self-review, then orchestrator review.** 
 
 ## Wide audits
 
-For a large repo, or a repo-wide drift audit, hand the survey to the `docs-drift-auditor` agent (`session-orchestration:docs-drift-auditor`). It is read-only and returns a findings table; you decide which fixes to apply. If you are a subagent, do not spawn it: audit the narrower scope yourself, or report that a wide audit is needed.
+For a large repo, or a repo-wide drift audit, hand the survey to the `docs-drift-auditor` agent (`orchestrator-workers:docs-drift-auditor`). It is read-only and returns a findings table; you decide which fixes to apply. If you are a subagent, do not spawn it: audit the narrower scope yourself, or report that a wide audit is needed.
