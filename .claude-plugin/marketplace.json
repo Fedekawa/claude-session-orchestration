@@ -10,10 +10,9 @@
   },
   "plugins": [
     {
-      "name": "session-orchestration",
-      "source": "./",
+      "name": "orchestrator-workers",
+      "source": "./plugins/orchestrator-workers",
       "description": "Skills and agents for running an orchestrator session with worker sessions: briefs, isolation, review, integration, plus a docs-vs-code sync and a self-review gate before handoff.",
-      "version": "0.3.0",
       "author": {
         "name": "Fedekawa"
       },
@@ -31,7 +30,6 @@
       "name": "orchestration-monitor",
       "source": "./plugins/orchestration-monitor",
       "description": "A cache band above the prompt and an /orchestration panel: the orchestrator's context, cache and usage limits, its subagents, and the worker sessions it started.",
-      "version": "0.1.0",
       "author": {
         "name": "Fedekawa"
       },
@@ -44,5 +42,8 @@
         "mod"
       ]
     }
-  ]
+  ],
+  "renames": {
+    "session-orchestration": "orchestrator-workers"
+  }
 }

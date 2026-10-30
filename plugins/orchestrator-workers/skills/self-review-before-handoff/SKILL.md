@@ -32,7 +32,7 @@ The order matters and follows the rule **code, then docs, then self-review**: do
    - **Tests:** new behaviour is tested; the new tests fail without your change; none are skipped, deleted or loosened.
    - **Safety:** nothing touches production data, auth, migrations or destructive paths unless the brief allowed it.
 7. **Run the checks** your project has: typecheck, lint, tests, build. Then exercise the real behaviour, not only the tests. Keep the commands and results; they go in the report.
-8. **Independent pass (optional, recommended for risky or large changes).** Start the `work-reviewer` agent (`session-orchestration:work-reviewer`) with the brief, the base and head refs and your worktree path. Do not give it your opinion of the work. Skip this step if you are a subagent: do not spawn agents, whatever the host allows.
+8. **Independent pass (optional, recommended for risky or large changes).** Start the `work-reviewer` agent (`orchestrator-workers:work-reviewer`) with the brief, the base and head refs and your worktree path. Do not give it your opinion of the work. Skip this step if you are a subagent: do not spawn agents, whatever the host allows.
 9. **Fix, commit, re-run.** Every fix invalidates earlier results: re-run the checks that could be affected, and confirm `git status --short` is empty again.
 10. **Write the report** in the format from `working-as-a-session`. Every line under "Verified" names a command and its actual result.
 

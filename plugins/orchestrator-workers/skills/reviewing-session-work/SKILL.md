@@ -25,7 +25,7 @@ A worker's report is a claim. As orchestrator, your job is to turn claims into v
    - debug leftovers, secrets, stray files
    - scope creep: refactors nobody asked for
    - over-engineering: abstractions, options, layers or error handling the brief did not call for; code that could be a third of its size
-6. **Docs check, check-only.** Did the docs that describe the changed behaviour change too? Use `syncing-docs-with-code` to find drift (its steps 1-4, 6 and 7, never step 5), or for a wide change the `docs-drift-auditor` agent (`session-orchestration:docs-drift-auditor`). Do not edit the worker's branch: send drift back as a numbered finding. Shared docs wait for the integration pass.
+6. **Docs check, check-only.** Did the docs that describe the changed behaviour change too? Use `syncing-docs-with-code` to find drift (its steps 1-4, 6 and 7, never step 5), or for a wide change the `docs-drift-auditor` agent (`orchestrator-workers:docs-drift-auditor`). Do not edit the worker's branch: send drift back as a numbered finding. Shared docs wait for the integration pass.
 7. **Verdict.**
    - **Accept.** Verified, in scope, docs right.
    - **Accept with follow-ups.** Safe to merge. List each follow-up and who owns it.
@@ -34,7 +34,7 @@ A worker's report is a claim. As orchestrator, your job is to turn claims into v
 
 ## Independent review for high-stakes work
 
-For auth, payments, data migrations, anything irreversible, or anything you would be embarrassed to get wrong, use the `work-reviewer` agent (`session-orchestration:work-reviewer`) for a fresh-context read. Give it the brief, the base and head refs and the worktree path, not your opinion and not the worker's conclusion, so it is not anchored. Treat its findings as input and verify the ones you act on.
+For auth, payments, data migrations, anything irreversible, or anything you would be embarrassed to get wrong, use the `work-reviewer` agent (`orchestrator-workers:work-reviewer`) for a fresh-context read. Give it the brief, the base and head refs and the worktree path, not your opinion and not the worker's conclusion, so it is not anchored. Treat its findings as input and verify the ones you act on.
 
 ## Telling the user
 

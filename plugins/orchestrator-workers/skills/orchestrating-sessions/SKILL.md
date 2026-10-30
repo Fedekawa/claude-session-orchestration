@@ -34,7 +34,7 @@ If any fails, run them in sequence or keep them in one session. Two writers on o
 
 **Shared interfaces.** When units are coupled through an interface (types, API shape, schema, event format), write and commit that contract on the base first, hand it to every brief as read-only, and only then dispatch. A worker that needs the contract changed escalates; it does not edit it.
 
-For a non-trivial split, give the goal to the `session-planner` agent (installed as `session-orchestration:session-planner`), then check its conflict map yourself.
+For a non-trivial split, give the goal to the `session-planner` agent (installed as `orchestrator-workers:session-planner`), then check its conflict map yourself.
 
 ## 3. Plan, then dispatch
 
