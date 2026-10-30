@@ -150,6 +150,10 @@ Headless workers have nobody to answer permission prompts. Pre-approve only what
 - **Decisions are multiple choice.** When the orchestrator needs the user's input it explains what the decision is about and offers at least three alternatives with pros and cons, one of them recommended. The user answers with a letter.
 - **Honest reports.** "Verified" means run and observed. Failing checks are reported as failing.
 
+## Privacy
+
+This plugin collects, stores and sends no data. It is Markdown instructions only: no code, hooks, MCP servers or connectors, and no service of its own that could receive anything. What Claude reads while following the skills (your repository, diffs, briefs and reports) stays in your Claude session, under the same terms as the rest of that session. Anything that leaves your machine, such as a push, a pull request or a deploy, happens only when you approve it.
+
 ## Contributing
 
 Issues and pull requests are welcome. Keep changes small and in the spirit of the repo: the simplest thing that works, general enough for anyone's project, and no mention of a specific company, client or private tool.
