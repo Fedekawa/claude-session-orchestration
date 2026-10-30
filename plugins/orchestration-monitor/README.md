@@ -27,6 +27,14 @@ A Claude Code mod that shows what an orchestrator session is doing, how much roo
 - Worker sessions are separate processes, so their tokens and context are not visible here: only what their end-of-turn notes say.
 - Worker sessions are picked up from the Claude desktop app's session tools (`start_session`, `hand_off_to_session`). Workers started another way, such as `claude -p` in a terminal, do not appear. The note format is the desktop app's; if it changes, sessions stay at "working".
 
+## Privacy
+
+The mod sends nothing off your machine and has no service of its own. Everything it shows comes from the running session and lives only in that session's memory: it writes no files and keeps nothing after the session ends.
+
+- **Reads:** the session's context fill, token counts, model and plan usage limits; the name of each tool call and a short hint from its input (a file name, search pattern or the first 60 characters of a command), to show what a subagent is doing; and each prompt the orchestrator receives, to find the end-of-turn notes the desktop app delivers from worker sessions and read their progress line. Other prompt text is ignored.
+- **Changes:** it appends the one-line progress request described above to each subagent's and worker session's brief.
+- **Sends:** only when you press **👀 Ask the orchestrator to look**, a fixed message naming that worker session goes to the orchestrator as your prompt, the same as if you had typed it.
+
 ## Install
 
 ```text
