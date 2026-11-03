@@ -22,10 +22,51 @@ A Claude Code mod that shows what an orchestrator session is doing, how much roo
 - **Subagents**: the mod adds one line to every subagent's brief asking it to call the `step` tool the mod provides, with its plan's size and each step as it finishes. The "now" line needs nothing from the subagent: it is the latest tool it called.
 - **Worker sessions**: the mod adds one line to every worker session's brief asking it to start each end-of-turn summary with `Progress: <done>/<total> — <note>`, or `Needs input: <question>` when it stops for an answer. The orchestrator reads that line in the note the desktop app sends when the session ends a turn, so a session's progress moves once per turn, not live.
 
+## A worker session's card
+
+Each worker session's card moves through these states. Every arrow comes from something the orchestrator sees: the tool call that starts or archives the session, the note the desktop app delivers at the end of each of its turns, or the orchestrator messaging it again.
+
+```mermaid
+flowchart TD
+    start(["Orchestrator starts a worker<br/>start_session · hand_off_to_session"])
+
+    subgraph panel ["ON THE PANEL"]
+        working["🔄 Working"]
+        paused["📨 Paused<br/>ended a turn, not done"]
+        needs["🙋 Needs input"]
+        quiet["💤 Quiet<br/>nothing heard for 10 min"]
+        working -- "note: Progress n/m" --> paused
+        working -- "note: Needs input" --> needs
+        working -. "silence" .-> quiet
+        paused & needs -- "orchestrator messages it" --> working
+    end
+
+    done(["✅ Done<br/>leaves the panel,<br/>counted in the heading"])
+    archived(["🗄️ Archived<br/>leaves the panel for good.<br/>Orchestrator reads a<br/>confirmation line."])
+
+    start --> working
+    panel -- "note: Progress m/m" --> done
+    panel -- "archive tool, or the app<br/>lists it as (archived)" --> archived
+    done -- "archived later" --> archived
+
+    classDef you fill:#f1f5f9,stroke:#475569,color:#0f172a
+    classDef live fill:#dcfce7,stroke:#15803d,color:#0f172a
+    classDef look fill:#ffedd5,stroke:#c2410c,color:#0f172a
+    class start,done,archived you
+    class working live
+    class paused,needs,quiet look
+    style panel fill:none,stroke:#94a3b8,stroke-dasharray:5 4
+```
+
+- **Paused**, **Needs input** and **Quiet** (orange) light the card and give it the 👀 button.
+- **Done** leaves the panel and is counted in the heading.
+- **Archived** leaves the panel for good, counted as `n archived`; a later note or message cannot bring it back. The orchestrator reads one line beside the archive result (or beside its next prompt when the app reported it) confirming the session is archived and off the panel. A failed archive tells it the session stays.
+
 ## Limits
 
 - The cache countdown assumes 1-hour cache entries, which Claude Code writes on a subscription. A session writing 5-minute entries goes cold sooner than shown.
 - Worker sessions are separate processes, so their tokens and context are not visible here: only what their end-of-turn notes say.
+- A session archived from the app's own UI is caught only if the app's linked-sessions line marks it `(archived)`; one that just drops off that line stays on the panel.
 - Worker sessions are picked up from the Claude desktop app's session tools (`start_session`, `hand_off_to_session`). Workers started another way, such as `claude -p` in a terminal, do not appear. The note format is the desktop app's; if it changes, sessions stay at "working".
 
 ## Privacy
