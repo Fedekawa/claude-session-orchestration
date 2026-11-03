@@ -15,6 +15,8 @@ const isAutoOpened = atom({ plugin: 'orchestration-monitor', key: 'isAutoOpened'
 
 // The desktop app's session tools; other hosts start workers in ways a mod cannot see.
 const SESSION_TOOLS = /^mcp__ccd_session__(start_session|hand_off_to_session)$/
+// Any host's archive tool: the desktop app's session tools, the cloud's claude-code-remote.
+const ARCHIVE_TOOL = /__archive_session$/
 const STEP_TOOL = 'mcp__orchestration-monitor__step'
 // Added to the end of each subagent's brief: a tool listed alone gets skipped, the same ask in the brief is followed.
 const STEP_BRIEF = `
@@ -131,18 +133,30 @@ async function autoOpen($: EngineInterface): Promise<void> {
 // and of the linked sessions' states on one line, `Linked sessions now (…): name = local_… (idle), …`.
 // Only those line starts are the app's: a recap is quoted with its line breaks shown as ⏎,
 // so a worker cannot start a line and speak for another session.
+// What the orchestrator reads once a worker is archived: the confirmation it is gone from the panel.
+const archivedNote = (s: WorkerSession): string =>
+  `orchestration-monitor: worker session "${s.title}" (${s.sessionId}) is archived and removed from the orchestration panel. Do not message it again; start a new session if more work is needed.`
+
 const TURN_LINE = /^The session "[^"\n]*" you started \((local_[\w-]+)\) finished a turn\.([^\n]*)$/gm
 const LINKED_LINE = /^Linked sessions now[^\n]*$/m
 
-async function hearFrom($: EngineInterface, text: string): Promise<void> {
+// Returns the workers this prompt reported archived, for the orchestrator's confirmation.
+async function hearFrom($: EngineInterface, text: string): Promise<WorkerSession[]> {
   const turns = new Map([...text.matchAll(TURN_LINE)].map(m => [m[1] ?? '', m[2] ?? '']))
   const linked = text.match(LINKED_LINE)?.[0] ?? ''
   const working = new Set([...linked.matchAll(/(local_[\w-]+) \(working\)/g)].map(m => m[1]))
-  if (turns.size === 0 && working.size === 0) return
+  const archived = new Set([...linked.matchAll(/(local_[\w-]+) \(archived\)/g)].map(m => m[1]))
+  if (turns.size === 0 && working.size === 0 && archived.size === 0) return []
   const at = await $.clock.now()
+  const gone: WorkerSession[] = []
   await update($, sessions, all =>
     all.map((s): WorkerSession => {
-      if (!s.sessionId) return s
+      if (!s.sessionId || s.archivedAt) return s
+      if (archived.has(s.sessionId)) {
+        const out = { ...s, archivedAt: at }
+        gone.push(out)
+        return out
+      }
       const recap = turns.get(s.sessionId)
       if (recap === undefined) {
         // Messaged again by the orchestrator or the user: back at work.
@@ -160,6 +174,7 @@ async function hearFrom($: EngineInterface, text: string): Promise<void> {
       }
     }),
   )
+  return gone
 }
 
 export const register: Register = on => {
@@ -194,7 +209,7 @@ export const register: Register = on => {
         const at = await $.clock.now()
         const isBusy =
           (await read($, agents)).some(a => a.status === 'running') ||
-          (await read($, sessions)).some(s => !s.reportedAt && !s.needsInput)
+          (await read($, sessions)).some(s => !s.archivedAt && !s.reportedAt && !s.needsInput)
         const { lastAt } = await read($, cache)
         // One minute past the end too, to draw it going cold.
         const isCounting = lastAt !== undefined && at - lastAt < CACHE_TTL_MS + 60_000
@@ -352,14 +367,30 @@ export const register: Register = on => {
     const to = String((e as unknown as { to?: unknown }).to ?? '')
     const at = await $.clock.now()
     await update($, sessions, all =>
-      all.map(s => (s.sessionId && to.includes(s.sessionId) ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined } : s)),
+      all.map(s => (s.sessionId && !s.archivedAt && to.includes(s.sessionId) ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined } : s)),
     )
     return next(e)
   })
 
+  // Archived by the orchestrator: it leaves the panel, and the orchestrator reads that it did.
+  on('tool.call', { tool: ARCHIVE_TOOL }, async ($, e, next) => {
+    const ran = await next(e)
+    const input = JSON.stringify(e)
+    const target = (await read($, sessions)).find(s => s.sessionId && !s.archivedAt && input.includes(s.sessionId))
+    if (!target) return ran
+    if (ran.deny !== undefined || ran.isError) {
+      const note = `orchestration-monitor: archiving worker session "${target.title}" (${target.sessionId}) did not go through, so it stays in the orchestration panel.`
+      return ran.deny !== undefined ? ran : { ...ran, context: [...(ran.context ?? []), note] }
+    }
+    const at = await $.clock.now()
+    await update($, sessions, all => all.map(s => (s.sessionId === target.sessionId ? { ...s, archivedAt: at } : s)))
+    return { ...ran, context: [...(ran.context ?? []), archivedNote(target)] }
+  })
+
   on('prompt.submit', async ($, e, next) => {
-    await hearFrom($, e.text)
-    return next(e)
+    const gone = await hearFrom($, e.text)
+    if (gone.length === 0 || e.command) return next(e)
+    return next({ ...e, context: [...(e.context ?? []), ...gone.map(archivedNote)] })
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
@@ -383,7 +414,7 @@ export const register: Register = on => {
       )
     }
     const list = await read($, agents)
-    const workers = await read($, sessions)
+    const workers = (await read($, sessions)).filter(s => !s.archivedAt)
     const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length] ?? ''
     const running = list.filter(a => a.status === 'running').length
     const states = workers.map(s => stateOf(s, at, spin))
@@ -450,7 +481,10 @@ export const register: Register = on => {
     const at = Math.max(await read($, tick), await $.clock.now())
     const usage = await $.session.usage()
     const list = await read($, agents)
-    const workers = await read($, sessions)
+    const all = await read($, sessions)
+    // An archived worker session leaves the panel for good, counted in the heading.
+    const workers = all.filter(s => !s.archivedAt)
+    const archivedCount = all.length - workers.length
     const percent = fillOf(usage) ?? 0
     const window = usage.context.window
     const orchestratorModel = await $.session.model()
@@ -587,9 +621,10 @@ export const register: Register = on => {
         </Box>
 
         <Box flexDirection="column">
-          {heading('🛰️ Worker sessions', `${openSessions.length} open · ${workers.length - openSessions.length} done`)}
-          {workers.length === 0 && <Text dimColor>None started from here.</Text>}
-          {workers.length > 0 && openSessions.length === 0 && <Text dimColor>All done ✅</Text>}
+          {heading('🛰️ Worker sessions', `${openSessions.length} open · ${workers.length - openSessions.length} done${archivedCount ? ` · ${archivedCount} archived` : ''}`,
+          )}
+          {all.length === 0 && <Text dimColor>None started from here.</Text>}
+          {all.length > 0 && openSessions.length === 0 && <Text dimColor>All done ✅</Text>}
           {[...openSessions].reverse().map(sessionCard)}
         </Box>
       </Box>

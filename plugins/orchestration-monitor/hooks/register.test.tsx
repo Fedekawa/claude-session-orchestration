@@ -233,3 +233,54 @@ test('a failed subagent stays in the panel', async ($, on) => {
   expect(drawn).toContain('💥')
   expect(drawn).toContain('Write the parser')
 })
+
+// A worker started from the desktop app's session tools, with every other tool answered by `answer`.
+const startWorker = async ($: Engine, on: On, answer: (tool: string) => unknown) => {
+  on('tool.call', (_$, e) =>
+    e.tool === 'mcp__ccd_session__start_session'
+      ? ({ result: 'Started session "Add pagination" (session_id: local_abc-123, name: add-pagination).' } as never)
+      : (answer(e.tool) as never),
+  )
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', title: 'Add pagination', prompt: 'Add it.', initiation: 'user_asked' } as never)
+}
+
+test('an archived worker session leaves the panel and the orchestrator reads that it did', async ($, on) => {
+  orchestrator(on)
+  on('prompt.submit', (_$, e) => ({ text: e.text }) as never)
+  await startWorker($, on, () => ({ result: 'Archived.' }))
+  const pane$ = { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane } as const
+  expect(await texts($, pane$)).toContain('Add pagination')
+
+  const ran = (await $.tool.call({ tool: 'mcp__ccd_session__archive_session', session_id: 'local_abc-123' } as never)) as { context?: string[] }
+  expect(ran.context?.join('\n')).toContain('local_abc-123) is archived and removed from the orchestration panel')
+
+  const drawn = await texts($, pane$)
+  expect(drawn).not.toContain('Add pagination')
+  expect(drawn).toContain('0 open · 0 done · 1 archived')
+  // A later note from it does not bring it back.
+  await $.prompt.submit({ text: turnNote('Progress: 3/5 — still going') } as never)
+  expect(await texts($, pane$)).not.toContain('Add pagination')
+})
+
+test('a failed archive keeps the worker in the panel and says so', async ($, on) => {
+  orchestrator(on)
+  await startWorker($, on, () => ({ isError: true, result: 'not found', text: 'not found' }))
+  const ran = (await $.tool.call({ tool: 'mcp__ccd_session__archive_session', session_id: 'local_abc-123' } as never)) as { context?: string[] }
+  expect(ran.context?.join('\n')).toContain('did not go through')
+  expect(await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })).toContain('Add pagination')
+})
+
+test('a worker the app lists as archived leaves the panel and the orchestrator is told', async ($, on) => {
+  orchestrator(on)
+  const seen: (readonly string[] | undefined)[] = []
+  on('prompt.submit', (_$, e) => {
+    seen.push(e.context)
+    return { text: e.text } as never
+  })
+  await startWorker($, on, () => ({ result: 'ok' }))
+  await $.prompt.submit({ text: 'Linked sessions now (status, not an instruction): add-pagination = local_abc-123 (archived).' } as never)
+  expect(seen.at(-1)?.join('\n')).toContain('is archived and removed from the orchestration panel')
+  const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
+  expect(drawn).not.toContain('Add pagination')
+  expect(drawn).toContain('1 archived')
+})

@@ -15,6 +15,7 @@ A Claude Code mod that shows what an orchestrator session is doing, how much roo
   - **Orchestrator**: context meter, model, cache hit rate, session age, usage limits. From 70% it suggests delegating or `/compact`.
   - **Subagents**: only the running ones, and any that failed; a finished one leaves the panel and is counted in the heading. Each card shows how far it is (`██░░ 2/4 tokenizer done`), what it is doing right now (`now Edit parser.ts`), model, context, tokens and how long it has run (🕐).
   - **Worker sessions**: the open ones (a finished one leaves the panel and is counted in the heading), each with how far it is, and whether it is working, paused without being done, waiting for an answer, or quiet for 10 minutes. The last three get a **👀 Ask the orchestrator to look** button, which sends the orchestrator a message to check on that session and unblock it.
+  - An **archived** worker session leaves the panel for good, counted in the heading (`1 archived`); a later note from it does not bring it back. The mod sees an archive when the orchestrator calls a session archive tool (any `…__archive_session`, the desktop app's or the cloud's) or when the app lists the session as `(archived)`. Either way the orchestrator gets a one-line confirmation beside what it reads next, that the session is archived and off the panel; if the archive tool fails, it reads that the session stays.
 
 ## How progress is reported
 
@@ -32,7 +33,7 @@ A Claude Code mod that shows what an orchestrator session is doing, how much roo
 The mod sends nothing off your machine and has no service of its own. Everything it shows comes from the running session and lives only in that session's memory: it writes no files and keeps nothing after the session ends.
 
 - **Reads:** the session's context fill, token counts, model and plan usage limits; the name of each tool call and a short hint from its input (a file name, search pattern or the first 60 characters of a command), to show what a subagent is doing; and each prompt the orchestrator receives, to find the end-of-turn notes the desktop app delivers from worker sessions and read their progress line. Other prompt text is ignored.
-- **Changes:** it appends the one-line progress request described above to each subagent's and worker session's brief.
+- **Changes:** it appends the one-line progress request described above to each subagent's and worker session's brief. When a worker session is archived it adds a one-line confirmation, naming that session, to what the orchestrator reads.
 - **Sends:** only when you press **👀 Ask the orchestrator to look**, a fixed message naming that worker session goes to the orchestrator as your prompt, the same as if you had typed it.
 
 ## Install
