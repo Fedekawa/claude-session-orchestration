@@ -37,6 +37,8 @@ export type WorkerSession = {
   progress?: SessionProgress
   /** From a `Needs input: …` line: what it is waiting on. */
   needsInput?: string
+  /** When it was archived: it leaves the panel and no later note brings it back. */
+  archivedAt?: number
 }
 
 declare module 'claude-code' {
