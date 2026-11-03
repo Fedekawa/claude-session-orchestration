@@ -37,6 +37,10 @@ export type WorkerSession = {
   progress?: SessionProgress
   /** From a `Needs input: …` line: what it is waiting on. */
   needsInput?: string
+  /** Its git branch: from the brief's `branch <name>`, the start tool's input, or a `Branch:` line in its notes. */
+  branch?: string
+  /** When its branch was merged (a `git merge` naming it, or the Mark merged button): it leaves the panel. */
+  mergedAt?: number
   /** When it was archived: it leaves the panel and no later note brings it back. */
   archivedAt?: number
 }

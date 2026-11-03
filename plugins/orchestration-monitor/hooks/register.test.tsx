@@ -110,9 +110,14 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
     await note('Progress: 5/5 — all tests pass ⏎ Done.')
     const done = await texts($, pane$)
-    // Done, it leaves the panel and is counted in the heading.
-    expect(done).not.toContain('Add pagination')
-    expect(done).toContain('0 open · 1 done')
+    // Done is its claim: it stays, to review, until its branch is merged.
+    expect(done).toContain('Add pagination')
+    expect(done).toContain('to review: reports done, not merged yet')
+    expect(done).toContain('0 open · 1 to review · 0 merged')
+    const bandUi = await $.ui.mount({ plugin: PLUGIN, surface, component: 'AbovePrompt', props: band })
+    const crew = (await bandUi.findAll({ type: 'Button' })).map(b => String(b.props.label)).join(' ')
+    await bandUi.unmount()
+    expect(crew).toContain('📥 1 to review')
   })
 
   test(`${surface}: a worker that needs input gets a button that asks the orchestrator to look`, async ($, on) => {
@@ -256,7 +261,7 @@ test('an archived worker session leaves the panel and the orchestrator reads tha
 
   const drawn = await texts($, pane$)
   expect(drawn).not.toContain('Add pagination')
-  expect(drawn).toContain('0 open · 0 done · 1 archived')
+  expect(drawn).toContain('0 open · 0 to review · 0 merged · 1 archived')
   // A later note from it does not bring it back.
   await $.prompt.submit({ text: turnNote('Progress: 3/5 — still going') } as never)
   expect(await texts($, pane$)).not.toContain('Add pagination')
@@ -283,4 +288,53 @@ test('a worker the app lists as archived leaves the panel and the orchestrator i
   const drawn = await texts($, { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane })
   expect(drawn).not.toContain('Add pagination')
   expect(drawn).toContain('1 archived')
+})
+
+// A worker whose brief names its branch, that reported all its steps done.
+const doneWorker = async ($: Engine, on: On, bash: (command: string) => unknown) => {
+  on('prompt.submit', (_$, e) => ({ text: e.text }) as never)
+  on('tool.call', (_$, e) =>
+    e.tool === 'Bash'
+      ? (bash(String((e as unknown as { command: string }).command)) as never)
+      : ({ result: 'Started session "Add pagination" (session_id: local_abc-123, name: add-pagination).' } as never),
+  )
+  const brief = 'Add it.\n\n## Environment\nWhere to work: worktree /repo-pagination, branch `feat/pagination`, based on main @ abc123.'
+  await $.tool.call({ tool: 'mcp__ccd_session__start_session', title: 'Add pagination', prompt: brief, initiation: 'user_asked' } as never)
+  await $.prompt.submit({ text: turnNote('Progress: 4/4 — done ⏎ Branch: feat/pagination') } as never)
+}
+const paneOf = { plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: 'orchestration', props: pane } as const
+
+test("merging a worker's branch takes its card off the panel and tells the orchestrator", async ($, on) => {
+  orchestrator(on)
+  await doneWorker($, on, () => ({ result: { stdout: 'Merge made by the ort strategy.' } }))
+  // Neither a merge-base nor an aborted merge is a merge.
+  await $.tool.call({ tool: 'Bash', command: 'git merge-base main feat/pagination && git merge --abort' } as never)
+  expect(await texts($, paneOf)).toContain('Add pagination')
+
+  const ran = (await $.tool.call({ tool: 'Bash', command: 'git -C /repo checkout integrate/x && git merge --no-ff feat/pagination -m "Merge feat/pagination"' } as never)) as { context?: string[] }
+  expect(ran.context?.join('\n')).toContain('has its branch feat/pagination merged')
+  const drawn = await texts($, paneOf)
+  expect(drawn).not.toContain('Add pagination')
+  expect(drawn).toContain('0 open · 0 to review · 1 merged')
+  expect(drawn).toContain('All done ✅')
+})
+
+test('a merge that fails leaves the worker to review', async ($, on) => {
+  orchestrator(on)
+  await doneWorker($, on, () => ({ isError: true, result: 'CONFLICT (content)', text: 'CONFLICT (content)' }))
+  const ran = (await $.tool.call({ tool: 'Bash', command: 'git merge feat/pagination' } as never)) as { context?: string[] }
+  expect(ran.context).toBeUndefined()
+  expect(await texts($, paneOf)).toContain('to review')
+})
+
+test('a worker to review gets a review button and a Mark merged button', async ($, on) => {
+  orchestrator(on)
+  await doneWorker($, on, () => ({ result: 'ok' }))
+  const ui = await $.ui.mount(paneOf)
+  const labels = (await ui.findAll({ type: 'Button' })).map(b => String(b.props.label))
+  expect(labels).toContain('🔍 Ask the orchestrator to review it')
+  const merged = (await ui.findAll({ type: 'Button' })).find(b => String(b.props.label) === '🔗 Mark merged')
+  await ui.press({ key: String(merged?.key) })
+  await ui.unmount()
+  expect(await texts($, paneOf)).toContain('1 merged')
 })

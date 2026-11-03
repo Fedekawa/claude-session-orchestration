@@ -20,7 +20,8 @@ Parallelism is a cost, not a goal. Every extra worker adds a brief to write, a r
 5. Draw the dependency edges. A unit that needs another's output is sequenced after it, never parallel.
 6. Look for **shared interfaces**: units coupled through types, an API shape, a schema or an event format. Recommend that the orchestrator writes and commits that contract first, as a unit 0 that every other unit receives read-only. Never let two units guess the same interface independently.
 7. Note the **environment** each worktree needs (dependencies, env files, generated code) and any runtime state that parallel workers would share (ports, local database, caches, container names).
-8. Treat final verification (full test run, build, docs pass) as a sequential step after integration, not as parallel work.
+8. Plan integration as you go: each unit merges into the integration branch as soon as it is accepted, with the full checks after each merge, so order the units so the earliest-finished foundations land first. The final verification (full test run, build, docs pass) is a sequential step after the last merge, not parallel work.
+9. Size the plan to review capacity: recommend no more than three or four units running at once, and sequence the rest into later waves.
 
 ## A pair of units may run in parallel only if
 

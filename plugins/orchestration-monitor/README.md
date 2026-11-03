@@ -14,13 +14,13 @@ A Claude Code mod that shows what an orchestrator session is doing, how much roo
 - **Orchestration panel** (`/orchestration` toggles it), one card per item. It opens by itself the first time the orchestrator delegates.
   - **Orchestrator**: context meter, model, cache hit rate, session age, usage limits. From 70% it suggests delegating or `/compact`.
   - **Subagents**: only the running ones, and any that failed; a finished one leaves the panel and is counted in the heading. Each card shows how far it is (`██░░ 2/4 tokenizer done`), what it is doing right now (`now Edit parser.ts`), model, context, tokens and how long it has run (🕐).
-  - **Worker sessions**: the open ones (a finished one leaves the panel and is counted in the heading), each with how far it is, and whether it is working, paused without being done, waiting for an answer, or quiet for 10 minutes. The last three get a **👀 Ask the orchestrator to look** button, which sends the orchestrator a message to check on that session and unblock it.
+  - **Worker sessions**: every one not yet merged, each with how far it is, and whether it is working, paused without being done, waiting for an answer, quiet for 10 minutes, or **📥 to review**: it says it is done, but only a merge counts. The first three get a **👀 Ask the orchestrator to look** button, which sends the orchestrator a message to check on that session and unblock it. A card to review gets **🔍 Ask the orchestrator to review it** and **🔗 Mark merged**. The band's button counts them (`📥 2 to review`): the review queue is what limits how many workers can usefully run.
   - An **archived** worker session leaves the panel for good, counted in the heading (`1 archived`); a later note from it does not bring it back. The mod sees an archive when the orchestrator calls a session archive tool (any `…__archive_session`, the desktop app's or the cloud's) or when the app lists the session as `(archived)`. Either way the orchestrator gets a one-line confirmation beside what it reads next, that the session is archived and off the panel; if the archive tool fails, it reads that the session stays.
 
 ## How progress is reported
 
 - **Subagents**: the mod adds one line to every subagent's brief asking it to call the `step` tool the mod provides, with its plan's size and each step as it finishes. The "now" line needs nothing from the subagent: it is the latest tool it called.
-- **Worker sessions**: the mod adds one line to every worker session's brief asking it to start each end-of-turn summary with `Progress: <done>/<total> — <note>`, or `Needs input: <question>` when it stops for an answer. The orchestrator reads that line in the note the desktop app sends when the session ends a turn, so a session's progress moves once per turn, not live.
+- **Worker sessions**: the mod adds one line to every worker session's brief asking it to start each end-of-turn summary with `Progress: <done>/<total> — <note>`, or `Needs input: <question>` when it stops for an answer, and to end it with `Branch: <its git branch>`. The orchestrator reads that line in the note the desktop app sends when the session ends a turn, so a session's progress moves once per turn, not live.
 
 ## A worker session's card
 
@@ -35,36 +35,41 @@ flowchart TD
         paused["📨 Paused<br/>ended a turn, not done"]
         needs["🙋 Needs input"]
         quiet["💤 Quiet<br/>nothing heard for 10 min"]
+        review["📥 To review<br/>says done, not merged yet"]
         working -- "note: Progress n/m" --> paused
         working -- "note: Needs input" --> needs
         working -. "silence" .-> quiet
         paused & needs -- "orchestrator messages it" --> working
+        working -- "note: Progress m/m" --> review
+        review -- "sent back with findings" --> working
     end
 
-    done(["✅ Done<br/>leaves the panel,<br/>counted in the heading"])
+    merged(["🔗 Merged<br/>leaves the panel,<br/>counted in the heading.<br/>Orchestrator reads a line."])
     archived(["🗄️ Archived<br/>leaves the panel for good.<br/>Orchestrator reads a<br/>confirmation line."])
 
     start --> working
-    panel -- "note: Progress m/m" --> done
+    review -- "git merge of its branch,<br/>or 🔗 Mark merged" --> merged
     panel -- "archive tool, or the app<br/>lists it as (archived)" --> archived
-    done -- "archived later" --> archived
+    merged -- "archived later" --> archived
 
     classDef you fill:#f1f5f9,stroke:#475569,color:#0f172a
     classDef live fill:#dcfce7,stroke:#15803d,color:#0f172a
     classDef look fill:#ffedd5,stroke:#c2410c,color:#0f172a
-    class start,done,archived you
+    class start,merged,archived you
     class working live
-    class paused,needs,quiet look
+    class paused,needs,quiet,review look
     style panel fill:none,stroke:#94a3b8,stroke-dasharray:5 4
 ```
 
 - **Paused**, **Needs input** and **Quiet** (orange) light the card and give it the 👀 button.
-- **Done** leaves the panel and is counted in the heading.
+- **To review** is the worker's claim that it is done. It stays until its branch is merged: the mod sees a `git merge` the orchestrator runs that names the branch (from the brief's `branch <name>`, the start tool's input, or the `Branch:` line the mod asks each worker to end its notes with), or you press **🔗 Mark merged**. A merge that fails leaves it to review.
+- **Merged** leaves the panel and is counted in the heading, and the orchestrator reads a line saying so.
 - **Archived** leaves the panel for good, counted as `n archived`; a later note or message cannot bring it back. The orchestrator reads one line beside the archive result (or beside its next prompt when the app reported it) confirming the session is archived and off the panel. A failed archive tells it the session stays.
 
 ## Limits
 
 - The cache countdown assumes 1-hour cache entries, which Claude Code writes on a subscription. A session writing 5-minute entries goes cold sooner than shown.
+- A merge is seen only from a `git merge` in the orchestrator's own shell. A merge on GitHub, a squash merge, a rebase or a cherry-pick is not: press **🔗 Mark merged**.
 - Worker sessions are separate processes, so their tokens and context are not visible here: only what their end-of-turn notes say.
 - A session archived from the app's own UI is caught only if the app's linked-sessions line marks it `(archived)`; one that just drops off that line stays on the panel.
 - Worker sessions are picked up from the Claude desktop app's session tools (`start_session`, `hand_off_to_session`). Workers started another way, such as `claude -p` in a terminal, do not appear. The note format is the desktop app's; if it changes, sessions stay at "working".
@@ -73,8 +78,8 @@ flowchart TD
 
 The mod sends nothing off your machine and has no service of its own. Everything it shows comes from the running session and lives only in that session's memory: it writes no files and keeps nothing after the session ends.
 
-- **Reads:** the session's context fill, token counts, model and plan usage limits; the name of each tool call and a short hint from its input (a file name, search pattern or the first 60 characters of a command), to show what a subagent is doing; and each prompt the orchestrator receives, to find the end-of-turn notes the desktop app delivers from worker sessions and read their progress line. Other prompt text is ignored.
-- **Changes:** it appends the one-line progress request described above to each subagent's and worker session's brief. When a worker session is archived it adds a one-line confirmation, naming that session, to what the orchestrator reads.
+- **Reads:** the session's context fill, token counts, model and plan usage limits; the name of each tool call and a short hint from its input (a file name, search pattern or the first 60 characters of a command), to show what a subagent is doing; the orchestrator's shell commands that run `git merge`, to see which worker branches were merged; and each prompt the orchestrator receives, to find the end-of-turn notes the desktop app delivers from worker sessions and read their progress line. Other prompt text is ignored.
+- **Changes:** it appends the one-line progress request described above to each subagent's and worker session's brief. When a worker session is archived or its branch is merged, it adds a one-line confirmation, naming that session, to what the orchestrator reads.
 - **Sends:** only when you press **👀 Ask the orchestrator to look**, a fixed message naming that worker session goes to the orchestrator as your prompt, the same as if you had typed it.
 
 ## Install

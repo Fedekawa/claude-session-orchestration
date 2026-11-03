@@ -42,7 +42,7 @@ flowchart TD
 
     subgraph P3 ["③ ORCHESTRATOR VERIFIES"]
         review["Check the diff,<br/>re-run the checks.<br/>Problems? Send findings<br/>back to the same worker."]
-        integrate["Merge into integrate/goal.<br/>Full checks, one docs pass."]
+        integrate["Merge each accepted one<br/>into integrate/goal right away.<br/>Full checks after each merge,<br/>one docs pass at the end."]
         review -- "accept" --> integrate
     end
 
@@ -141,6 +141,8 @@ Headless workers have nobody to answer permission prompts. Pre-approve only what
 ## Principles behind the defaults
 
 - **One writer per file, one owner per shared file.** Lockfiles, index exports, route tables, migrations, schemas, `CLAUDE.md`, top-level README and CHANGELOG all have exactly one owner, usually the orchestrator at integration.
+- **Integrate as you go.** Each accepted result merges into the integration branch right away, with the full checks after every merge. Pieces that pass alone fail together, and a break found one merge later points at its cause.
+- **Review before dispatch.** Run no more workers than you can review, roughly three or four, and clear the review queue before starting another.
 - **Contracts first.** When parts share an interface, the orchestrator commits it before dispatching, and workers receive it read-only.
 - **Sonnet works, Opus advises.** Every worker gets its model explicitly: Sonnet by default, with Opus as its advisor (`/advisor opus`, or `--advisor opus` for a headless run), Haiku for pure lookups. A worker given no model runs on the orchestrator's, usually the most expensive.
 - **Safe by default.** Workers do not push, open PRs, deploy, migrate or touch production unless the brief says so and a human approved it.
