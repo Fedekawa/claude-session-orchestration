@@ -25,7 +25,7 @@ Progress reporting: before any other work, call \`${STEP_TOOL}\` with \`total\` 
 // Added to the end of each worker session's brief: its end-of-turn note is all the orchestrator hears of it.
 const SESSION_BRIEF = `
 
-Progress reporting for the orchestrator: start every end-of-turn summary with one line \`Progress: <done>/<total> — <a few words>\` (your plan in 3-8 steps). If you stop because you need an answer or a decision, start it with \`Needs input: <the question>\` instead.`
+Progress reporting for the orchestrator: start every end-of-turn summary with one line \`Progress: <done>/<total> — <a few words>\` (your plan in 3-8 steps). If you stop because you need an answer or a decision, start it with \`Needs input: <the question>\` instead. End each summary with a line \`Branch: <your git branch>\`.`
 // A worker session not heard from for this long gets a Look button.
 const QUIET_MS = 10 * 60_000
 
@@ -92,19 +92,45 @@ function activityOf(tool: string, input: Record<string, unknown>): string {
 }
 
 // `reason` is fixed wording: the Look prompt sends it as the person's own words.
-type SessionState = { mark: string; label: string; reason?: string }
+// `review`: it says it is done, but only a merge counts; until then it waits on the orchestrator.
+type SessionState = { kind: 'working' | 'look' | 'review' | 'merged'; mark: string; label: string; reason?: string }
 
 // What the panel can say of a worker session from what reached the orchestrator.
 function stateOf(s: WorkerSession, at: number, spin: string): SessionState {
-  if (s.needsInput) return { mark: '🙋', label: `needs input: ${s.needsInput}`, reason: 'its last report says it needs input' }
-  if (s.progress && s.progress.total > 0 && s.progress.done >= s.progress.total) return { mark: '✅', label: 'done' }
+  if (s.mergedAt) return { kind: 'merged', mark: '🔗', label: 'merged' }
+  if (s.needsInput) return { kind: 'look', mark: '🙋', label: `needs input: ${s.needsInput}`, reason: 'its last report says it needs input' }
+  if (s.progress && s.progress.total > 0 && s.progress.done >= s.progress.total) {
+    return { kind: 'review', mark: '📥', label: 'to review: reports done, not merged yet', reason: 'it reports done and waits for your review and merge' }
+  }
   if (s.reportedAt) {
-    return { mark: '📨', label: `paused at ${fmtClock(s.reportedAt)}, not done`, reason: 'it ended its turn without saying it is done' }
+    return { kind: 'look', mark: '📨', label: `paused at ${fmtClock(s.reportedAt)}, not done`, reason: 'it ended its turn without saying it is done' }
   }
   const quiet = at - s.startedAt
-  if (quiet >= QUIET_MS) return { mark: '💤', label: `quiet for ${fmtTime(quiet)}`, reason: `nothing heard from it for ${fmtTime(quiet)}` }
-  return { mark: spin, label: 'working' }
+  if (quiet >= QUIET_MS) return { kind: 'look', mark: '💤', label: `quiet for ${fmtTime(quiet)}`, reason: `nothing heard from it for ${fmtTime(quiet)}` }
+  return { kind: 'working', mark: spin, label: 'working' }
 }
+
+// The branch a brief names: `branch \`feat/x\`` or `branch feat/x`; a bare word with no / or - is too likely prose.
+const BRIEF_BRANCH = /\bbranch:?\s+(?:`([^`\s]+)`|([A-Za-z0-9._]+[/-][A-Za-z0-9._/-]+))/i
+const branchIn = (text: string): string | undefined => {
+  const m = text.match(BRIEF_BRANCH)
+  return m?.[1] ?? m?.[2]
+}
+
+// The branches a shell command merges: each `git [-C dir] merge <args>`, flags and a -m message aside.
+function mergedBranches(command: string): string[] {
+  const out: string[] = []
+  for (const part of command.split(/[;&|\n]+/)) {
+    const m = part.match(/\bgit(?:\s+-C\s+\S+)*\s+merge\s+(.*)$/)
+    if (!m || /--(abort|continue|quit)\b/.test(m[1] ?? '')) continue
+    const args = (m[1] ?? '').replace(/-m\s+("[^"]*"|'[^']*'|\S+)/g, ' ')
+    out.push(...args.split(/\s+/).map(t => t.replace(/^['"]|['"]$/g, '')).filter(t => t && !t.startsWith('-')))
+  }
+  return out
+}
+
+const mergedNote = (s: WorkerSession): string =>
+  `orchestration-monitor: worker session "${s.title}" (${s.sessionId}) has its branch ${s.branch} merged, so the orchestration panel shows it as merged.`
 
 async function openPane($: EngineInterface): Promise<void> {
   const now = await $.clock.now()
@@ -160,13 +186,17 @@ async function hearFrom($: EngineInterface, text: string): Promise<WorkerSession
       const recap = turns.get(s.sessionId)
       if (recap === undefined) {
         // Messaged again by the orchestrator or the user: back at work.
-        return working.has(s.sessionId) && s.reportedAt ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined } : s
+        return working.has(s.sessionId) && s.reportedAt
+          ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined, mergedAt: undefined }
+          : s
       }
       const progress = recap.match(/Progress:\s*(\d+)\s*\/\s*(\d+)\s*(?:[—–-]\s*([^⏎."]*))?/i)
       const needs = recap.match(/Needs input:\s*([^⏎"]*)/i)?.[1]?.trim()
+      const branch = recap.match(/Branch:\s*`?([A-Za-z0-9._/-]+)/)?.[1]
       return {
         ...s,
         reportedAt: at,
+        branch: s.branch ?? branch,
         progress: progress
           ? { done: Number(progress[1]), total: Number(progress[2]), note: (progress[3] ?? '').trim().slice(0, 80) }
           : s.progress,
@@ -346,7 +376,7 @@ export const register: Register = on => {
   })
 
   on('tool.call', { tool: SESSION_TOOLS }, async ($, e, next) => {
-    const input = e as unknown as { title?: string; prompt?: string }
+    const input = e as unknown as { title?: string; prompt?: string; branch?: string }
     const needsBrief = typeof input.prompt === 'string' && !input.prompt.includes('Progress: <done>/<total>')
     const ran = await next(needsBrief ? ({ ...e, prompt: input.prompt + SESSION_BRIEF } as typeof e) : e)
     if (!('result' in ran) || ran.result === undefined) return ran
@@ -356,7 +386,8 @@ export const register: Register = on => {
     if (!sessionId) return ran
 
     const at = await $.clock.now()
-    const worker: WorkerSession = { id: e.tool_use_id, title: input.title || sessionId, sessionId, startedAt: at }
+    const branch = (typeof input.branch === 'string' && input.branch) || branchIn(input.prompt ?? '')
+    const worker: WorkerSession = { id: e.tool_use_id, title: input.title || sessionId, sessionId, startedAt: at, branch }
     await update($, sessions, list => [...list.filter(s => s.sessionId !== sessionId), worker].slice(-50))
     await autoOpen($)
     return ran
@@ -367,7 +398,7 @@ export const register: Register = on => {
     const to = String((e as unknown as { to?: unknown }).to ?? '')
     const at = await $.clock.now()
     await update($, sessions, all =>
-      all.map(s => (s.sessionId && !s.archivedAt && to.includes(s.sessionId) ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined } : s)),
+      all.map(s => (s.sessionId && !s.archivedAt && to.includes(s.sessionId) ? { ...s, startedAt: at, reportedAt: undefined, needsInput: undefined, mergedAt: undefined } : s)),
     )
     return next(e)
   })
@@ -385,6 +416,22 @@ export const register: Register = on => {
     const at = await $.clock.now()
     await update($, sessions, all => all.map(s => (s.sessionId === target.sessionId ? { ...s, archivedAt: at } : s)))
     return { ...ran, context: [...(ran.context ?? []), archivedNote(target)] }
+  })
+
+  // The orchestrator merging a worker's branch: the card leaves as merged, and the orchestrator reads that it did.
+  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
+    const ran = await next(e)
+    const command = String((e as unknown as { command?: unknown }).command ?? '')
+    if (ran.deny !== undefined || ran.isError || !/\bmerge\b/.test(command)) return ran
+    const names = mergedBranches(command)
+    if (names.length === 0) return ran
+    const hit = (b?: string) => !!b && names.some(n => n === b || n.endsWith(`/${b}`))
+    const merged = (await read($, sessions)).filter(s => !s.archivedAt && !s.mergedAt && hit(s.branch))
+    if (merged.length === 0) return ran
+    const at = await $.clock.now()
+    const ids = new Set(merged.map(s => s.id))
+    await update($, sessions, all => all.map(s => (ids.has(s.id) ? { ...s, mergedAt: at } : s)))
+    return { ...ran, context: [...(ran.context ?? []), ...merged.map(mergedNote)] }
   })
 
   on('prompt.submit', async ($, e, next) => {
@@ -418,12 +465,14 @@ export const register: Register = on => {
     const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length] ?? ''
     const running = list.filter(a => a.status === 'running').length
     const states = workers.map(s => stateOf(s, at, spin))
-    const active = states.filter(s => s.label === 'working').length
-    const needYou = states.filter(s => s.reason).length
+    const active = states.filter(s => s.kind === 'working').length
+    const toReview = states.filter(s => s.kind === 'review').length
+    const needYou = states.filter(s => s.kind === 'look').length
     const limits = limitsText(usage)
     const crew = [
       running > 0 && `🤖 ${running} working`,
       active > 0 && `🛰️ ${active} active`,
+      toReview > 0 && `📥 ${toReview} to review`,
       needYou > 0 && `🙋 ${needYou} to check`,
     ]
       .filter(Boolean)
@@ -498,8 +547,11 @@ export const register: Register = on => {
     const spin = SPINNER[Math.floor(at / 1000) % SPINNER.length] ?? ''
     const limits = limitsText(usage)
     const cached = cachePercent(await read($, cache))
-    // Likewise a worker session that reported all its steps done.
-    const openSessions = workers.filter(s => stateOf(s, at, spin).label !== 'done')
+    // A worker session that says it is done stays, to review, until its branch is merged.
+    const kinds = workers.map(s => stateOf(s, at, spin).kind)
+    const openSessions = workers.filter((_s, i) => kinds[i] !== 'merged')
+    const reviewCount = kinds.filter(k => k === 'review').length
+    const mergedCount = kinds.filter(k => k === 'merged').length
 
     const card = (key: string, isLit: boolean, children: RenderChildren) => (
       <Box key={key} flexDirection="column" borderStyle="round" borderColor={isLit ? ORANGE : undefined} borderDimColor={!isLit} paddingX={1}>
@@ -561,7 +613,14 @@ export const register: Register = on => {
 
     const sessionCard = (s: WorkerSession) => {
       const state = stateOf(s, at, spin)
-      const look = `Check on worker session ${s.sessionId}: ${state.reason}. Read its latest report with get_session, then unblock it or tell me what it needs.`
+      const look =
+        state.kind === 'review'
+          ? `Review worker session ${s.sessionId}: ${state.reason}. Run reviewing-session-work on it, then merge its branch into the integration branch if it passes, or send it numbered findings.`
+          : `Check on worker session ${s.sessionId}: ${state.reason}. Read its latest report with get_session, then unblock it or tell me what it needs.`
+      const markMerged = async () => {
+        const now = await $.clock.now()
+        await update($, sessions, all => all.map(w => (w.id === s.id ? { ...w, mergedAt: now } : w)))
+      }
       return card(
         s.id,
         state.reason !== undefined,
@@ -577,8 +636,13 @@ export const register: Register = on => {
             {state.label} · started {fmtClock(s.startedAt)}
           </Text>
           {state.reason && (
-            <Button key={`look-${s.id}`} label="👀 Ask the orchestrator to look" onPress={() => void $.prompt.submit({ text: look, asUser: true })} />
+            <Button
+              key={`look-${s.id}`}
+              label={state.kind === 'review' ? '🔍 Ask the orchestrator to review it' : '👀 Ask the orchestrator to look'}
+              onPress={() => void $.prompt.submit({ text: look, asUser: true })}
+            />
           )}
+          {state.kind === 'review' && <Button key={`merged-${s.id}`} label="🔗 Mark merged" onPress={() => void markMerged()} />}
         </>,
       )
     }
@@ -621,7 +685,7 @@ export const register: Register = on => {
         </Box>
 
         <Box flexDirection="column">
-          {heading('🛰️ Worker sessions', `${openSessions.length} open · ${workers.length - openSessions.length} done${archivedCount ? ` · ${archivedCount} archived` : ''}`,
+          {heading('🛰️ Worker sessions', `${openSessions.length - reviewCount} open · ${reviewCount} to review · ${mergedCount} merged${archivedCount ? ` · ${archivedCount} archived` : ''}`,
           )}
           {all.length === 0 && <Text dimColor>None started from here.</Text>}
           {all.length > 0 && openSessions.length === 0 && <Text dimColor>All done ✅</Text>}

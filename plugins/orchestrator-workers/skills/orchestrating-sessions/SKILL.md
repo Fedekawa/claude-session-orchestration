@@ -52,6 +52,7 @@ Write the work-unit table before spawning anything:
 - Fork or fresh? A fork inherits this whole conversation: use it when the task leans on the conversation and the conversation is short. Use a fresh session with a full brief when the task is self-contained or the conversation is long.
 - Launch independent subagents in one message (several tool calls at once) so they start together.
 - Cap concurrency at what you can actually review, roughly three or four. Beyond that, review becomes the bottleneck and quality drops.
+- Review comes before dispatch: while a result waits for your review or merge, do not start another worker. Clear the queue first. A queue that keeps growing means too many workers, not too little time.
 - Give every worker a budget (time, turns or cost) and a stop rule: report partial results at the limit.
 
 ## 4. Isolation
@@ -97,16 +98,19 @@ Never use `--dangerously-skip-permissions` for a worker. The JSON output carries
 
 ## 6. Review every result
 
-A report is a claim, not proof. Run `reviewing-session-work` on each result before it counts as done.
+A report is a claim, not proof. Run `reviewing-session-work` on each result before it counts as done. An accepted result goes straight into the integration branch (section 7); it does not wait for the others.
 
-## 7. Integrate
+## 7. Integrate as you go
 
-1. Create a named integration branch (`integrate/<goal>`) from the base. It is the single candidate the user will merge or open a PR from. Worker branches are inputs to it, not alternatives to it.
-2. Merge the worker branches into it in dependency order: foundations first, then the least conflicting.
+Merge each result as soon as you accept it, not all at the end. Pieces that pass alone can fail together, and a break found one merge after it happened points at its cause; found after five merges, it costs hours you may not have.
+
+1. Create a named integration branch (`integrate/<goal>`) from the base before the first merge. It is the single candidate the user will merge or open a PR from. Worker branches are inputs to it, not alternatives to it.
+2. Merge each accepted worker branch into it right away (`git merge <worker-branch>`, by its branch name). When several are accepted together, merge in dependency order: foundations first, then the least conflicting.
 3. Resolve conflicts yourself. If one shows two workers touched the same thing, note it; your split leaked.
-4. Run the full checks on the **combined** result. Pieces that pass alone can fail together.
-5. Run `syncing-docs-with-code` once on the combined change and update the shared docs (the choke points).
-6. When you tell the user about a branch, name it exactly. If a tag shares a branch's name, use the full ref (`refs/heads/<name>`).
+4. Run the full checks on the **combined** result after every merge. If they fail, the merge you just made is the suspect: fix it in the integration branch if the fix is small and yours, otherwise revert that merge and send numbered findings back to its worker.
+5. Rebase nothing a worker is still using. Workers that need what has landed get it by merging the integration branch into their own branch, on your instruction.
+6. When the last result is in, run the full checks once more and `syncing-docs-with-code` once on the combined change, and update the shared docs (the choke points).
+7. When you tell the user about a branch, name it exactly. If a tag shares a branch's name, use the full ref (`refs/heads/<name>`).
 
 Merging into the integration branch is your job. Merging that branch into the base, pushing, and opening PRs are the user's call: ask, naming the branch.
 

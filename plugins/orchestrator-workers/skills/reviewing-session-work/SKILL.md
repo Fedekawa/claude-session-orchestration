@@ -27,8 +27,8 @@ A worker's report is a claim. As orchestrator, your job is to turn claims into v
    - over-engineering: abstractions, options, layers or error handling the brief did not call for; code that could be a third of its size
 6. **Docs check, check-only.** Did the docs that describe the changed behaviour change too? Use `syncing-docs-with-code` to find drift (its steps 1-4, 6 and 7, never step 5), or for a wide change the `docs-drift-auditor` agent (`orchestrator-workers:docs-drift-auditor`). Do not edit the worker's branch: send drift back as a numbered finding. Shared docs wait for the integration pass.
 7. **Verdict.**
-   - **Accept.** Verified, in scope, docs right.
-   - **Accept with follow-ups.** Safe to merge. List each follow-up and who owns it.
+   - **Accept.** Verified, in scope, docs right. Merge it into the integration branch now and run the full checks there (`orchestrating-sessions`, section 7).
+   - **Accept with follow-ups.** Safe to merge, and merged now like an accept. List each follow-up and who owns it.
    - **Rework.** Send specific, numbered findings back to the **same** worker, which already has the context, if your host can continue it (a message tool, or `claude -p --resume <session-id>`). Otherwise start a fresh worker with the brief, the numbered findings and the branch name. Re-review the delta and re-run all checks.
    - **Reject.** Wrong approach. Say why and re-brief, possibly with a new worker.
 

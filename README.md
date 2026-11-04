@@ -36,7 +36,7 @@ flowchart TD
 
     subgraph P3 ["③ ORCHESTRATOR VERIFIES"]
         review["Check the diff,<br/>re-run the checks.<br/>Problems? Send findings<br/>back to the same worker."]
-        integrate["Merge into integrate/goal.<br/>Full checks, one docs pass."]
+        integrate["Merge each accepted one<br/>into integrate/goal right away.<br/>Full checks after each merge,<br/>one docs pass at the end."]
         review -- "accept" --> integrate
     end
 
@@ -76,26 +76,29 @@ flowchart TD
         paused["📨 Paused<br/>ended a turn, not done"]
         needs["🙋 Needs input"]
         quiet["💤 Quiet<br/>nothing heard for 10 min"]
+        review["📥 To review<br/>says done, not merged yet"]
         working -- "note: Progress n/m" --> paused
         working -- "note: Needs input" --> needs
         working -. "silence" .-> quiet
         paused & needs -- "orchestrator messages it" --> working
+        working -- "note: Progress m/m" --> review
+        review -- "sent back with findings" --> working
     end
 
-    done(["✅ Done<br/>leaves the panel,<br/>counted in the heading"])
+    merged(["🔗 Merged<br/>leaves the panel,<br/>counted in the heading.<br/>Orchestrator reads a line."])
     archived(["🗄️ Archived<br/>leaves the panel for good.<br/>Orchestrator reads a<br/>confirmation line."])
 
     start --> working
-    panel -- "note: Progress m/m" --> done
+    review -- "git merge of its branch,<br/>or 🔗 Mark merged" --> merged
     panel -- "archive tool, or the app<br/>lists it as (archived)" --> archived
-    done -- "archived later" --> archived
+    merged -- "archived later" --> archived
 
     classDef you fill:#f1f5f9,stroke:#475569,color:#0f172a
     classDef live fill:#dcfce7,stroke:#15803d,color:#0f172a
     classDef look fill:#ffedd5,stroke:#c2410c,color:#0f172a
-    class start,done,archived you
+    class start,merged,archived you
     class working live
-    class paused,needs,quiet look
+    class paused,needs,quiet,review look
     style panel fill:none,stroke:#94a3b8,stroke-dasharray:5 4
 ```
 
