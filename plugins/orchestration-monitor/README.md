@@ -80,7 +80,58 @@ The mod sends nothing off your machine and has no service of its own. Everything
 
 - **Reads:** the session's context fill, token counts, model and plan usage limits; the name of each tool call and a short hint from its input (a file name, search pattern or the first 60 characters of a command), to show what a subagent is doing; the orchestrator's shell commands that run `git merge`, to see which worker branches were merged; and each prompt the orchestrator receives, to find the end-of-turn notes the desktop app delivers from worker sessions and read their progress line. Other prompt text is ignored.
 - **Changes:** it appends the one-line progress request described above to each subagent's and worker session's brief. When a worker session is archived or its branch is merged, it adds a one-line confirmation, naming that session, to what the orchestrator reads.
-- **Sends:** only when you press **👀 Ask the orchestrator to look**, a fixed message naming that worker session goes to the orchestrator as your prompt, the same as if you had typed it.
+- **Sends:** only when you press **👀 Ask the orchestrator to look** or **🔍 Ask the orchestrator to review it**, a fixed message naming that worker session goes to the orchestrator as your prompt, the same as if you had typed it. The exact text is under [Prompts it submits](#prompts-it-submits).
+- **Credentials:** it reads none. The plan usage limits come from the session's own usage figures (`$.session.usage()`), the same numbers Claude Code shows, and nothing it reads leaves the session.
+
+## What each hook does
+
+The hooks module is [`hooks/register.tsx`](hooks/register.tsx). It registers no permission hook, does not touch settings or permission modes, and denies or blocks nothing: every hook below hands the event on with `next` and returns what it gives back, unless the row says otherwise.
+
+| Hook | What it does | What it changes |
+|---|---|---|
+| `session.start` | Registers the `/orchestration` command and the `step` tool, and starts a one-second clock that redraws the band and panel while work is running. | Nothing. |
+| `command.run` (`orchestration` only) | Opens or closes the panel. | Answers its own `/orchestration` command itself (no `next`): it replies `Orchestration panel opened.` or `Orchestration panel closed.` No other command is touched. |
+| `agent.spawn` | Adds the subagent to the panel. | Appends the progress line below to the subagent's prompt, unless the prompt already names the `step` tool. Nothing else in the prompt or the spawn changes. |
+| `tool.call` (`mcp__orchestration-monitor__step` only) | Records a subagent's progress. | Stands in for the tool: `step` is the mod's own tool, so the mod answers it (`ok`, or `ignored: only subagents report steps` outside a subagent) and no other tool is replaced. |
+| `tool.call` (every tool) | Records which tool a subagent called last, for the "now" line. | Nothing: the input goes on unchanged. |
+| `tool.call` (`mcp__ccd_session__start_session`, `mcp__ccd_session__hand_off_to_session`) | Adds the worker session to the panel. | Changes tool input: appends the progress line below to the `prompt` field, unless the prompt already asks for it. No other field changes. |
+| `tool.call` (`SendMessage`) | Marks that worker session as working again. | Nothing. |
+| `tool.call` (any `…__archive_session`) | Removes the archived worker from the panel. | Adds one line to the tool's result for the orchestrator: the archive confirmation below, or, if the archive failed, that the session stays on the panel. The result itself is unchanged. |
+| `tool.call` (`Bash`) | Looks for a `git merge` of a worker's branch. | Adds the merge line below to the result when one is found. The command and its output are unchanged. |
+| `turn.step`, `turn.complete` | Reads token counts and the cache hit rate, and marks a subagent done or failed. | Nothing. |
+| `prompt.submit` | Reads the desktop app's end-of-turn notes from worker sessions for their `Progress:`, `Needs input:` and `Branch:` lines. | When a note says a worker was archived, adds the archive confirmation below beside the prompt. The prompt text itself is unchanged. |
+| `ui.render` (`AbovePrompt`, and its own `orchestration` pane) | Draws the cache band and the panel. | Draws its band row above whatever other mods put there. Its own `orchestration` pane it draws itself (no `next`); no other pane is touched. |
+
+### Text it adds
+
+To each subagent's prompt (`agent.spawn`):
+
+```text
+Progress reporting: before any other work, call `mcp__orchestration-monitor__step` with `total` (your plan in 3-8 steps) and `done: 0`; call it again with `done` and a few-word `note` as each step finishes. It only draws a progress bar for the orchestrator.
+```
+
+To each worker session's `prompt` (`start_session`, `hand_off_to_session`):
+
+```text
+Progress reporting for the orchestrator: start every end-of-turn summary with one line `Progress: <done>/<total> — <a few words>` (your plan in 3-8 steps). If you stop because you need an answer or a decision, start it with `Needs input: <the question>` instead. End each summary with a line `Branch: <your git branch>`.
+```
+
+Beside a tool result or prompt, for the orchestrator:
+
+```text
+orchestration-monitor: worker session "<title>" (<session id>) is archived and removed from the orchestration panel. Do not message it again; start a new session if more work is needed.
+orchestration-monitor: archiving worker session "<title>" (<session id>) did not go through, so it stays in the orchestration panel.
+orchestration-monitor: worker session "<title>" (<session id>) has its branch <branch> merged, so the orchestration panel shows it as merged.
+```
+
+### Prompts it submits
+
+Only when you press a button on a worker session's card, and sent as your own prompt:
+
+- **👀 Ask the orchestrator to look**: `Check on worker session <session id>: <reason>. Read its latest report with get_session, then unblock it or tell me what it needs.`
+- **🔍 Ask the orchestrator to review it**: `Review worker session <session id>: it reports done and waits for your review and merge. Run reviewing-session-work on it, then merge its branch into the integration branch if it passes, or send it numbered findings.`
+
+`<reason>` is one of fixed phrases: `its last report says it needs input`, `it ended its turn without saying it is done`, or `nothing heard from it for <time>`.
 
 ## Install
 
